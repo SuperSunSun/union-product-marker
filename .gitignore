@@ -54,8 +54,8 @@ exports/
 media/
 data/database.db
 
-# union_htmlsaver_chrome_plugin
-union_htmlsaver_chrome_plugin/output/
+# union_scraper_htmlsaver_chrome_plugin
+union_scraper_htmlsaver_chrome_plugin/output/
 
 # union_product_marker_webserver
 union_product_marker_webserver/data/database.db
