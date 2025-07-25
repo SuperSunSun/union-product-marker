@@ -1,0 +1,215 @@
+{% extends 'layout.html' %}
+{% block title %}爬虫数据管理{% endblock %}
+{% block content %}
+
+<!-- 引入商品预览插件 -->
+<script src="{{ url_for('static', filename='js/product_preview.js') }}"></script>
+
+<!-- 上半部分 - 数据统计 -->
+<div class="statistics-section mb-4">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5>数据统计</h5>
+      <button class="btn btn-sm btn-outline-primary" onclick="loadStatistics()">
+        <i class="fas fa-sync-alt me-1"></i>刷新统计
+      </button>
+    </div>
+    <div class="card-body" id="statisticsContent">
+      <div class="text-center text-muted">
+        <i class="fas fa-spinner fa-spin me-2"></i>加载中...
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 下半部分 - 数据浏览 -->
+<div class="data-browse-section">
+  <!-- 预览控制栏 -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-4">
+          <label class="form-label mb-0">图片路径:</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="useAbsolutePath" checked>
+            <label class="form-check-label" for="useAbsolutePath">使用本地图片服务</label>
+          </div>
+        </div>
+        <div class="col-md-8 text-end">
+          <span id="summary" class="text-muted me-3"></span>
+          <button class="btn btn-sm btn-outline-primary" onclick="loadAllData()">
+            <i class="fas fa-refresh me-1"></i>刷新数据
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 预览主布局 -->
+  <div class="preview-layout">
+    <!-- 左侧导航 -->
+    <div class="preview-sidebar card">
+      <div class="card-body d-flex flex-column">
+        <input type="text" class="form-control sidebar-search" id="sidebarSearch" placeholder="搜索ID/名称/品牌...">
+        
+        <div class="d-flex justify-content-around my-2 small">
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="navView" id="viewBySource" value="source">
+                <label class="form-check-label" for="viewBySource" style="cursor:pointer;">
+                    按来源
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="navView" id="viewById" value="id" checked>
+                <label class="form-check-label" for="viewById" style="cursor:pointer;">
+                    按ID
+                </label>
+            </div>
+        </div>
+        <hr class="my-1">
+
+        <div id="sidebarNav" class="flex-grow-1" style="overflow-y: auto; min-height: 0;"></div>
+      </div>
+    </div>
+    <!-- 右侧内容 -->
+    <div class="preview-content" id="previewContent">
+      <!-- 产品卡片将在这里渲染 -->
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block page_js %}
+<script src="{{ url_for('static', filename='js/lazy-load.js') }}"></script>
+<script>
+// 页面加载时获取数据
+document.addEventListener('DOMContentLoaded', function() {
+  loadStatistics();
+  loadAllData();
+});
+
+// 数据统计功能
+function loadStatistics() {
+  const statisticsContent = document.getElementById('statisticsContent');
+  statisticsContent.innerHTML = '<div class="text-center text-muted"><i class="fas fa-spinner fa-spin me-2"></i>加载中...</div>';
+  
+  fetch('/crawler-manage/statistics')
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        statisticsContent.innerHTML = `<div class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>错误: ${data.error}</div>`;
+        return;
+      }
+      
+      renderStatistics(data.stats);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      statisticsContent.innerHTML = '<div class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>加载失败</div>';
+    });
+}
+
+function renderStatistics(stats) {
+  const statisticsContent = document.getElementById('statisticsContent');
+  
+  let html = `
+    <div class="row">
+      <div class="col-md-3">
+        <div class="text-center">
+          <h3 class="text-primary">${stats.total_products}</h3>
+          <p class="text-muted mb-0">商品总数</p>
+          <small class="text-muted">库内所有有ID的数量</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-center">
+          <h3 class="text-success">${stats.products_with_data}</h3>
+          <p class="text-muted mb-0">有数据商品</p>
+          <small class="text-muted">有至少1个来源数据</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-center">
+          <h3 class="text-info">${stats.total_sources}</h3>
+          <p class="text-muted mb-0">来源数据总量</p>
+          <small class="text-muted">所有来源的爬虫数据</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-center">
+          <h3 class="text-warning">${stats.data_ratio}%</h3>
+          <p class="text-muted mb-0">有数据比率</p>
+          <small class="text-muted">有数据商品数/商品总数</small>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  if (stats.sources.length > 0) {
+    html += '<hr><div class="mt-3"><h6>来源详情:</h6><div class="source-stat-list">';
+    stats.sources.forEach(source => {
+      const sourceColor = getSourceColor(source.source_name);
+      html += `
+        <div class="source-stat-row">
+          <span class="badge ${sourceColor}">${source.source_name}</span>
+          <span class="source-stat-info">
+            <span class="source-ratio">${source.source_ratio}%</span>
+            <span class="source-counts">(${source.products_with_this_source}/${stats.total_products})</span>
+          </span>
+        </div>
+      `;
+    });
+    html += '</div></div>';
+  }
+  
+  statisticsContent.innerHTML = html;
+}
+
+function getSourceColor(sourceName) {
+  const s = (sourceName || '').toLowerCase();
+  if (s.includes('amazon')) return 'bg-warning text-dark';
+  if (s.includes('shopee')) return 'bg-danger text-white';
+  if (s.includes('fairprice')) return 'bg-primary text-white';
+  return 'bg-secondary text-white';
+}
+
+// 数据浏览功能
+function loadAllData() {
+  const refreshBtn = document.querySelector('button[onclick="loadAllData()"]');
+  const originalText = refreshBtn.innerHTML;
+  
+  AppUtils.showLoading(refreshBtn, '加载中...');
+  
+  fetch('/crawler-manage/all-data')
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        console.error('加载数据失败:', data.error);
+        AppUtils.showMessage('加载数据失败: ' + data.error, 'danger');
+        return;
+      }
+      
+      // 使用插件渲染预览
+      ProductPreview.init({
+        container: '.data-browse-section',
+        data: data,
+        showDeleteButton: true
+      });
+      
+      AppUtils.showMessage(`成功加载 ${Object.keys(data.products || {}).length} 个来源的数据`, 'success');
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      AppUtils.showMessage('加载数据失败: ' + error.message, 'danger');
+    })
+    .finally(() => {
+      AppUtils.hideLoading(refreshBtn, originalText);
+    });
+}
+
+// 将函数暴露到全局，供插件调用
+window.loadAllData = loadAllData;
+window.loadStatistics = loadStatistics;
+</script>
+{% endblock %}

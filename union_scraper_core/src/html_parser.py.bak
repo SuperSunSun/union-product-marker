@@ -1,0 +1,192 @@
+# -*- coding: utf-8 -*-
+# amazon_scraper/html_parser.py
+
+from bs4 import BeautifulSoup
+import json5 as json  # 使用 json5 增强 JSON 容错能力
+import json as std_json
+import re
+import os
+
+def clean_text(text):
+    """
+    清理文本：去除不可见字符、多余换行、连续空格。
+    """
+    if not text:
+        return text
+    text = re.sub(r'[\u200e\u200f\xa0]+', '', text)  # 删除不可见字符
+    text = re.sub(r'\s+', ' ', text)  # 合并换行与空格为单个空格
+    return text.strip()
+
+def extract_color_images_script(content):
+    """
+    从脚本中安全提取 'colorImages': {'initial': [ {...}, {...} ] } 数组内容
+    采用括号配对方式，支持嵌套结构
+    """
+    start_marker = "'colorImages': { 'initial': "
+    start = content.find(start_marker)
+    if start == -1:
+        return []
+    start = content.find('[', start)
+    if start == -1:
+        return []
+
+    # 找到与之配对的结尾 ']'
+    depth = 0
+    for i in range(start, len(content)):
+        if content[i] == '[':
+            depth += 1
+        elif content[i] == ']':
+            depth -= 1
+            if depth == 0:
+                json_text = content[start:i+1]
+                # print("[DEBUG] Extracted raw JSON text:", json_text)  # 可开启调试查看 raw JSON 源码
+                try:
+                    return json.loads(json_text)
+                except Exception as e:
+                    print("[ERROR] Failed to load extracted colorImages array:", e)
+                break
+    return []
+
+def simplify_image_url(url):
+    """
+    移除 Amazon 图片 URL 中尺寸后缀，如 _AC_SL1500_、_SX342_ 等
+    示例：https://m.media-amazon.com/images/I/61HYYYFKbyL._AC_SL1500_.jpg → https://m.media-amazon.com/images/I/61HYYYFKbyL.jpg
+    """
+    # 正则表达式匹配 URL 中的文件名部分，并对其进行简化
+    simplified_url = re.sub(
+        r'(.*/)([^/.]+)(\..+)(\.[^.]+)$', 
+        lambda m: f"{m.group(1)}{m.group(2)}{m.group(4)}",
+        url
+    )
+    return simplified_url
+
+def parse_all_fields(html):
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # 商品标题
+    product_name_tag = soup.select_one('#productTitle')
+    product_name = clean_text(product_name_tag.get_text()) if product_name_tag else None
+
+    # 品牌
+    brand_tag = soup.select_one('#bylineInfo')
+    brand = clean_text(brand_tag.get_text()) if brand_tag else None
+    if brand and brand.lower().startswith("brand:"):
+        brand = brand[6:].strip()
+    elif brand and brand.startswith("Brand："):
+        brand = brand[4:].strip()
+
+    # 当前价格
+    price_tag = (
+        soup.select_one('#priceblock_ourprice') or
+        soup.select_one('#priceblock_dealprice') or
+        soup.select_one('#priceblock_saleprice') or
+        soup.select_one('span.a-price .a-offscreen')
+    )
+    current_price = clean_text(price_tag.get_text()) if price_tag else None
+
+    # Step 1: meta_info (价格下方, about this item上方) productOverview_feature_div
+    meta_info = {}
+    overview_div = soup.select_one('#productOverview_feature_div')
+    if overview_div:
+        for row in overview_div.select('table tr'):
+            cells = row.find_all(['th', 'td'])
+            if len(cells) >= 2:
+                k = clean_text(cells[0].get_text())
+                v = clean_text(cells[1].get_text())
+                if k and v:
+                    meta_info[k] = v
+   
+
+    # 描述区块
+    def extract_table_dict(selector):
+        section = soup.select_one(selector)
+        data = {}
+        if section:
+            for row in section.select('tr'):
+                th, td = row.find('th'), row.find('td')
+                if th and td:
+                    k = clean_text(th.text)
+                    v = clean_text(td.text)
+                    if k and v:
+                        data[k] = v
+        return data
+
+    # about this item
+    about_list = []
+    about_ul = soup.select_one('#feature-bullets ul')
+    if about_ul:
+        for li in about_ul.select('li span.a-list-item'):
+            text = clean_text(li.get_text())
+            if text:
+                about_list.append(text)
+
+    # image_urls 从 colorImages.initial 中提取（兼容嵌套在 JS 中的伪 JSON）
+    image_urls_origin = []
+    image_urls = []
+    for script in soup.find_all('script'):
+        content = script.string or script.get_text()
+        if content and 'colorImages' in content:
+            images = extract_color_images_script(content)
+            # print("[DEBUG] Extracted colorImages array:", images)  # 如需调试图片结构，可取消注释
+            image_urls_origin = [
+                img.get('hiRes') or img.get('large') or img.get('mainUrl')
+                for img in images if any(img.get(k) for k in ('hiRes', 'large', 'mainUrl'))
+            ]
+            image_urls = [simplify_image_url(u) for u in image_urls_origin if u]
+            break
+
+
+
+    # important_information 特殊处理：查找 div 中包含关键标题
+    important_data = {}
+    imp_section = soup.find('div', id='important-information')
+    if imp_section:
+        headers = imp_section.find_all(['h3', 'h4'])
+        for header in headers:
+            title = clean_text(header.get_text())
+
+            # 收集 header 到下一个 header 之间的所有段落、列表、div 等内容
+            content_parts = []
+            for sib in header.next_siblings:
+                if sib.name in ['h3', 'h4']:
+                    break
+                if hasattr(sib, 'get_text'):
+                    text = clean_text(sib.get_text())
+                    if text:
+                        content_parts.append(text)
+
+            if content_parts:
+                important_data[title] = "\n".join(content_parts)
+
+    # 专门提取 product_details（来自 detailBullets_feature_div）
+    product_details = {}
+    detail_div = soup.select_one('#detailBullets_feature_div')
+    if detail_div:
+        for li in detail_div.select('li'):
+            text = clean_text(li.get_text())
+            if ':' in text:
+                k, v = map(clean_text, text.split(':', 1))
+                if k and v:
+                    product_details[k] = v
+
+
+    description = {
+        "technical_details": extract_table_dict('#productDetails_techSpec_section_1'),
+        "additional_information": extract_table_dict('#productDetails_detailBullets_sections1'),
+        "product_details": product_details, 
+        "important_information": important_data  # 特殊处理结构：从 div#important-information 中提取标题+段落内容
+    }
+
+    return {
+        "product_name": product_name,
+        "brand": brand,
+        "price": {
+            "original_price": None,
+            "current_price": current_price
+        },
+        "image_urls_origin": image_urls_origin or [],
+        "image_urls": image_urls or [],
+        "meta_info": meta_info or {},
+        "about_this_item": about_list or [],
+        "description": description
+    }

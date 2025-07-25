@@ -1,0 +1,925 @@
+{% extends 'layout.html' %}
+{% block title %}导出数据{% endblock %}
+
+{# 图片缩略图宏 #}
+{% macro render_image_thumbnails(item) %}
+  <div class="image-thumbnails">
+    {% set image_config = [
+      ['main', '主图'], ['front', '正面'], ['back', '背面'],
+      ['box', '整箱'], ['extra', '其他']
+    ] %}
+    {% for img_type, img_label in image_config %}
+      {% set local_path = item.image_local_paths.get(img_type, '') %}
+      <div class="image-thumbnail {% if local_path %}has-image{% else %}no-image{% endif %}" 
+           data-type="{{ img_type }}" data-local-path="{{ local_path }}">
+        {% if local_path %}
+          <img class="lazy-image" data-local-src="{{ local_path }}" data-use-local="true"
+               alt="{{ img_label }}" onclick="window.open(this.src, '_blank')" 
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <span class="image-alt-text" style="display:none;">{{ img_label }}</span>
+        {% else %}
+          <img class="lazy-image" alt="{{ img_label }}" style="display:none;">
+          <span class="image-alt-text">{{ img_label }}</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{# 备注宏 #}
+{% macro render_notes(item) %}
+  <div class="notes-section">
+    {% if item.notes %}
+      <div class="manual-notes" title="{{ item.notes }}">
+        <span class="notes-content">{{ item.notes[:15] }}{% if item.notes|length > 15 %}...{% endif %}</span>
+      </div>
+    {% endif %}
+    {% if item.auto_notes %}
+      <div class="auto-notes" title="{{ item.auto_notes }}">
+        <span class="notes-content">{{ item.auto_notes[:15] }}{% if item.auto_notes|length > 15 %}...{% endif %}</span>
+      </div>
+    {% endif %}
+    {% if not item.notes and not item.auto_notes %}
+      <span class="text-muted">-</span>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{% block common_css %}
+  {{ super() }}
+  <!-- jsTree 样式 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.16/themes/default/style.min.css">
+{% endblock %}
+
+{% block page_css %}
+<style>
+/* 导出页面特定样式 */
+
+/* TAB样式 */
+.nav-tabs .nav-link {
+  font-weight: 500;
+  color: #495057;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem 1.5rem;
+}
+
+.nav-tabs .nav-link.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background: none;
+}
+
+.nav-tabs .nav-link:hover {
+  border-color: transparent;
+  color: #007bff;
+}
+
+/* 操作按钮样式 */
+.export-actions {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.export-actions .btn {
+  margin-right: 0.5rem;
+}
+
+/* jsTree 自定义样式 */
+.jstree-default .jstree-themeicon {
+  display: none;
+}
+
+.jstree-default .jstree-icon {
+  background-image: none !important;
+}
+
+.jstree-default .jstree-icon:before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+}
+
+.jstree-default .jstree-icon.jstree-folder:before {
+  content: "\f07b";
+  color: #ffc107;
+}
+
+.jstree-default .jstree-icon.jstree-folder.jstree-open:before {
+  content: "\f07c";
+  color: #ffc107;
+}
+
+.jstree-default .jstree-icon.jstree-file:before {
+  content: "\f15b";
+  color: #6c757d;
+}
+
+.jstree-default .jstree-icon.jstree-image:before {
+  content: "\f03e";
+  color: #28a745;
+}
+
+/* 文件浏览器样式 */
+.file-browser-container {
+  display: flex;
+  height: 600px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.file-tree {
+  width: 350px;
+  border-right: 1px solid #dee2e6;
+  overflow-y: auto;
+  background: #f8f9fa;
+  padding: 1rem;
+}
+
+.file-tree .jstree-container-ul {
+  background: transparent;
+}
+
+.file-content {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.file-content .empty-state {
+  text-align: center;
+  color: #6c757d;
+  margin-top: 2rem;
+}
+
+.file-content .image-preview {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.file-content .image-preview img {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.file-info {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.file-info h6 {
+  margin-bottom: 0.5rem;
+  color: #495057;
+}
+
+.file-info p {
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+/* 进度模态框样式 */
+.progress-modal .modal-body {
+  padding: 2rem;
+}
+
+/* 导出进度详情容器 - 只让log部分滚动 */
+#exportProgressDetails {
+  border: none;
+  background: none;
+  padding: 0;
+}
+#exportProgressNotice {
+  margin-bottom: 8px;
+}
+#exportProgressLog {
+  height: 240px;
+  overflow-y: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background: #f8f9fa;
+  padding: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+#exportProgressLog::-webkit-scrollbar {
+  width: 8px;
+}
+#exportProgressLog::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+#exportProgressLog::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+#exportProgressLog::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.progress-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.progress-item:last-child {
+  border-bottom: none;
+}
+
+.progress-status {
+  font-size: 0.9rem;
+}
+
+.progress-status.success {
+  color: #28a745;
+}
+
+.progress-status.error {
+  color: #dc3545;
+}
+
+.progress-status.processing {
+  color: #007bff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .file-browser-container {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .file-tree {
+    width: 100%;
+    height: 300px;
+    border-right: none;
+    border-bottom: 1px solid #dee2e6;
+  }
+  
+  .export-actions .btn {
+    margin-bottom: 0.5rem;
+    width: 100%;
+  }
+}
+
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="export-container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>导出数据</h2>
+    <div class="d-flex align-items-center">
+      <div class="image-controls d-flex align-items-center gap-3 me-3">
+        <label for="imageDisplayMode" class="form-label mb-0">图片显示:</label>
+        <!-- 图片模式选择器将在这里动态生成 -->
+      </div>
+      <button class="btn btn-outline-danger me-2" onclick="clearExportDirectory()">
+        <i class="fas fa-trash me-1"></i>清空导出数据
+      </button>
+      <button class="btn btn-primary" onclick="refreshFileBrowser()">
+        <i class="fas fa-sync-alt me-1"></i>刷新
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB导航 -->
+  <ul class="nav nav-tabs mb-4" id="exportTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button" role="tab">
+        <i class="fas fa-list me-1"></i>商品选择
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="files-tab" data-bs-toggle="tab" data-bs-target="#files" type="button" role="tab">
+        <i class="fas fa-folder me-1"></i>文件浏览器
+      </button>
+    </li>
+  </ul>
+
+  <!-- TAB内容 -->
+  <div class="tab-content" id="exportTabContent">
+    <!-- TAB1: 商品选择 -->
+    <div class="tab-pane fade show active" id="products" role="tabpanel">
+      <div class="export-actions">
+        <div class="row align-items-center">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center">
+              <button class="btn btn-outline-primary me-2" onclick="selectAll()">
+                <i class="fas fa-check-square me-1"></i>全选
+              </button>
+              <button class="btn btn-outline-secondary me-2" onclick="selectInverse()">
+                <i class="fas fa-exchange-alt me-1"></i>反选
+              </button>
+              <button class="btn btn-outline-warning" onclick="selectNone()">
+                <i class="fas fa-square me-1"></i>取消选择
+              </button>
+            </div>
+          </div>
+          <div class="col-md-6 text-end">
+            <span class="text-muted me-3">已选择: <span id="selectedCount">0</span> 个商品</span>
+            <button class="btn btn-success" onclick="exportSelectedProducts()">
+              <i class="fas fa-download me-1"></i>导出选中商品
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-table-container">
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped table-hover product-table" id="productTable">
+            <thead>
+              <tr>
+                <th style="width: 40px;">
+                  <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
+                </th>
+                <th style="width: 70px;">
+                  <div>ID</div>
+                  <span class="field-tag">id</span>
+                </th>
+                <th style="width: 220px;">
+                  <div>商品名称</div>
+                  <span class="field-tag">unified_name</span>
+                  <span class="field-tag">name</span>
+                </th>
+                <th style="width: 110px;">
+                  <div>品牌</div>
+                  <span class="field-tag">brand</span>
+                </th>
+                <th style="width: 90px;">
+                  <div>价格(上架)</div>
+                  <span class="field-tag">price_listed</span>
+                </th>
+                <th style="width: 90px;">
+                  <div>价格(成本)</div>
+                  <span class="field-tag">price_cost</span>
+                </th>
+                <th style="width: 320px;">
+                  <div>图片</div>
+                  <span class="field-tag">images</span>
+                </th>
+                <th style="width: 140px;">
+                  <div>备注</div>
+                  <span class="field-tag">notes</span>
+                  <span class="field-tag">auto_notes</span>
+                </th>
+                <th style="width: 80px;">
+                  <div>标注状态</div>
+                  <span class="field-tag">status</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="productTableBody">
+              <!-- 商品数据将在这里动态加载 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB2: 文件浏览器 -->
+    <div class="tab-pane fade" id="files" role="tabpanel">
+      <div class="file-browser-container">
+        <div class="file-tree" id="fileTree">
+          <!-- jsTree 将在这里初始化 -->
+        </div>
+        <div class="file-content" id="fileContent">
+          <div class="empty-state">
+            <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+            <h5>选择文件查看详情</h5>
+            <p class="text-muted">在左侧文件树中选择文件或文件夹</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导出进度模态框 -->
+  <div class="modal fade" id="exportProgressModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-download me-2"></i>导出进度
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="progress mb-3">
+            <div class="progress-bar" id="exportProgressBar" role="progressbar" style="width: 0%"></div>
+          </div>
+          <div id="exportProgressDetails">
+            <div id="exportProgressNotice"><!-- 通知栏 --></div>
+            <div id="exportProgressLog"><!-- log内容 --></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+          <button type="button" class="btn btn-primary" id="viewResultsBtn" onclick="viewResults()" style="display: none;">
+            <i class="fas fa-folder me-1"></i>查看结果
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<!-- 引入 jsTree JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.16/jstree.min.js"></script>
+<script>
+let products = [];
+let selectedProducts = new Set();
+let currentFileTree = [];
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+  loadProducts();
+  loadFileTree();
+
+  // 初始化图片组件
+  if (typeof ImageComponents !== 'undefined') {
+    ImageComponents.init({
+      defaultMode: 'local',
+      lazyLoad: true,
+      placeholder: '/static/images/placeholder.svg'
+    });
+
+    // 读取本地存储的图片显示模式
+    const savedMode = localStorage.getItem('imageDisplayMode') || 'local';
+    const imageControls = document.querySelector('.image-controls');
+    const modeSelector = ImageComponents.createImageModeSelector({
+      id: 'imageDisplayMode',
+      defaultMode: savedMode,
+      onModeChange: function(mode) {
+        localStorage.setItem('imageDisplayMode', mode);
+        ImageComponents.setImageDisplayMode(mode, '.image-thumbnail');
+        modeSelector.value = mode; // 保证selectbox同步
+      }
+    });
+    imageControls.appendChild(modeSelector);
+    modeSelector.value = savedMode; // 页面加载时同步selectbox
+    ImageComponents.setImageDisplayMode(savedMode, '.image-thumbnail');
+  }
+});
+
+// 加载商品列表
+function loadProducts() {
+  fetch('/export-data/products')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        products = data.products;
+        renderProductTable();
+      } else {
+        AppUtils.showMessage('加载商品列表失败: ' + data.error, 'error');
+      }
+    })
+    .catch(error => {
+      console.error('加载商品列表失败:', error);
+      AppUtils.showMessage('加载商品列表失败', 'error');
+    });
+}
+
+// 渲染商品表格
+function renderProductTable() {
+  const tbody = document.getElementById('productTableBody');
+  tbody.innerHTML = '';
+  
+  products.forEach(product => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="checkbox-column">
+        <input type="checkbox" class="row-checkbox" value="${product.id}" onchange="toggleProductSelection('${product.id}')">
+      </td>
+      <td>${product.id}</td>
+      <td>
+        ${product.unified_name ? 
+          `<div class="unified-name">${product.unified_name}</div>
+           ${product.base_name ? `<div class="base-name">${product.base_name}</div>` : ''}` :
+          `<div class="base-name">${product.base_name}</div>`
+        }
+      </td>
+      <td>${product.brand || '-'}</td>
+      <td>${product.price_listed !== null && product.price_listed !== undefined ? product.price_listed : '-'}</td>
+      <td>${product.price_cost !== null && product.price_cost !== undefined ? product.price_cost : '-'}</td>
+      <td>${renderImageThumbnailsHTML(product)}</td>
+      <td>${renderNotesHTML(product)}</td>
+      <td>
+        <span class="badge bg-success">已标注</span>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+  
+  // 初始化图片组件
+  if (typeof ImageComponents !== 'undefined') {
+    ImageComponents.addLazyImages(document.querySelectorAll('.lazy-image'));
+  }
+  
+  // 修复图片懒加载：补全data-src并触发懒加载
+  document.querySelectorAll('.lazy-image').forEach(img => {
+    const localSrc = img.getAttribute('data-local-src');
+    if (localSrc && !img.getAttribute('data-src')) {
+      const baseUrl = ImageComponents && ImageComponents.init && ImageComponents['localImageBaseUrl']
+        ? ImageComponents['localImageBaseUrl']
+        : '/images/';
+      img.setAttribute('data-src', localSrc.startsWith('/') ? localSrc : baseUrl + localSrc);
+      img.src = '/static/images/placeholder.svg';
+    }
+  });
+  if (window.ImageComponents && ImageComponents.addLazyImages) {
+    ImageComponents.addLazyImages(document.querySelectorAll('.lazy-image'));
+  }
+  
+  updateSelectedCount();
+}
+
+// 渲染图片缩略图HTML
+function renderImageThumbnailsHTML(product) {
+  const imageConfig = [
+    ['main', '主图'], ['front', '正面'], ['back', '背面'],
+    ['box', '整箱'], ['extra', '其他']
+  ];
+  
+  let html = '<div class="image-thumbnails">';
+  
+  imageConfig.forEach(([imgType, imgLabel]) => {
+    const localPath = product.image_local_paths[imgType] || '';
+    const hasImage = localPath !== '';
+    
+    html += `<div class="image-thumbnail ${hasImage ? 'has-image' : 'no-image'}" data-type="${imgType}" data-local-path="${localPath}">`;
+    
+    if (hasImage) {
+      html += `<img class="lazy-image" data-local-src="${localPath}" data-use-local="true" alt="${imgLabel}" onclick="window.open(this.src, '_blank')" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`;
+      html += `<span class="image-alt-text" style="display:none;">${imgLabel}</span>`;
+    } else {
+      html += `<img class="lazy-image" alt="${imgLabel}" style="display:none;">`;
+      html += `<span class="image-alt-text">${imgLabel}</span>`;
+    }
+    
+    html += '</div>';
+  });
+  
+  html += '</div>';
+  return html;
+}
+
+// 渲染备注HTML
+function renderNotesHTML(product) {
+  let html = '<div class="notes-section">';
+  
+  if (product.notes) {
+    html += `<div class="manual-notes" title="${product.notes}">
+      <span class="notes-content">${product.notes.length > 15 ? product.notes.substring(0, 15) + '...' : product.notes}</span>
+    </div>`;
+  }
+  
+  if (product.auto_notes) {
+    html += `<div class="auto-notes" title="${product.auto_notes}">
+      <span class="notes-content">${product.auto_notes.length > 15 ? product.auto_notes.substring(0, 15) + '...' : product.auto_notes}</span>
+    </div>`;
+  }
+  
+  if (!product.notes && !product.auto_notes) {
+    html += '<span class="text-muted">-</span>';
+  }
+  
+  html += '</div>';
+  return html;
+}
+
+// 选择相关函数
+function toggleProductSelection(productId) {
+  if (selectedProducts.has(productId)) {
+    selectedProducts.delete(productId);
+  } else {
+    selectedProducts.add(productId);
+  }
+  updateSelectedCount();
+}
+
+function selectAll() {
+  selectedProducts.clear();
+  products.forEach(product => selectedProducts.add(product.id));
+  updateCheckboxes();
+  updateSelectedCount();
+}
+
+function selectInverse() {
+  products.forEach(product => {
+    if (selectedProducts.has(product.id)) {
+      selectedProducts.delete(product.id);
+    } else {
+      selectedProducts.add(product.id);
+    }
+  });
+  updateCheckboxes();
+  updateSelectedCount();
+}
+
+function selectNone() {
+  selectedProducts.clear();
+  updateCheckboxes();
+  updateSelectedCount();
+}
+
+function toggleSelectAll() {
+  const selectAllCheckbox = document.getElementById('selectAll');
+  if (selectAllCheckbox.checked) {
+    selectAll();
+  } else {
+    selectNone();
+  }
+}
+
+function updateCheckboxes() {
+  const checkboxes = document.querySelectorAll('#productTableBody input.row-checkbox');
+  checkboxes.forEach(checkbox => {
+    checkbox.checked = selectedProducts.has(checkbox.value);
+  });
+  const selectAllCheckbox = document.getElementById('selectAll');
+  selectAllCheckbox.checked = selectedProducts.size === products.length && products.length > 0;
+  selectAllCheckbox.indeterminate = selectedProducts.size > 0 && selectedProducts.size < products.length;
+}
+
+function updateSelectedCount() {
+  document.getElementById('selectedCount').textContent = selectedProducts.size;
+}
+
+// 导出功能
+function exportSelectedProducts() {
+  if (selectedProducts.size === 0) {
+    AppUtils.showMessage('请先选择要导出的商品', 'warning');
+    return;
+  }
+
+  const productIds = Array.from(selectedProducts);
+
+  // 显示进度模态框
+  const modal = new bootstrap.Modal(document.getElementById('exportProgressModal'));
+  modal.show();
+
+  // 初始化进度显示
+  document.getElementById('exportProgressBar').style.width = '0%';
+  document.getElementById('exportProgressNotice').innerHTML = '<div class="text-center">准备导出...</div>';
+  document.getElementById('exportProgressLog').innerHTML = '';
+  document.getElementById('exportProgressLog').scrollTop = document.getElementById('exportProgressLog').scrollHeight;
+  document.getElementById('viewResultsBtn').style.display = 'none';
+
+  // 发送导出请求（异步，获取task_id）
+  fetch('/export-data/export', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ product_ids: productIds })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success && data.task_id) {
+      pollExportProgress(data.task_id);
+    } else {
+      showExportError(data.error || '导出任务启动失败');
+    }
+  })
+  .catch(error => {
+    console.error('导出任务启动失败:', error);
+    showExportError('导出任务启动失败');
+  });
+}
+
+// 轮询导出进度
+function pollExportProgress(taskId) {
+  let polling = true;
+  function poll() {
+    fetch(`/export-data/progress/${taskId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          showExportError(data.error);
+          polling = false;
+          return;
+        }
+        // 更新进度条
+        document.getElementById('exportProgressBar').style.width = `${data.progress}%`;
+        // 构建通知栏和log
+        let noticeHtml = '';
+        let logHtml = '';
+        if (data.status === 'finished') {
+          noticeHtml += `<div class="alert alert-success"><h6><i class="fas fa-check-circle me-2"></i>导出完成</h6><p>成功处理 ${data.processed} 个商品，${data.errors.length} 个错误</p></div>`;
+        } else if (data.status === 'error') {
+          noticeHtml += `<div class="alert alert-danger"><h6><i class="fas fa-exclamation-triangle me-2"></i>导出失败</h6><p>${data.errors.join('<br>')}</p></div>`;
+        } else {
+          noticeHtml += `<div class="alert alert-info"><h6><i class="fas fa-spinner fa-spin me-2"></i>正在导出</h6><p>已处理 ${data.processed}/${data.total} 个商品</p></div>`;
+        }
+        if (data.results && data.results.length > 0) {
+          logHtml += '<h6>导出详情:</h6>';
+          data.results.forEach(result => {
+            logHtml += `<div class="progress-item"><span>${result.folder_name}</span><span class="progress-status success">处理 ${result.processed_images}/${result.total_images} 张图片</span></div>`;
+          });
+        }
+        if (data.errors && data.errors.length > 0 && data.status !== 'error') {
+          logHtml += '<h6 class="mt-3 text-danger">错误信息:</h6>';
+          data.errors.forEach(error => {
+            logHtml += `<div class="progress-item"><span class="progress-status error">${error}</span></div>`;
+          });
+        }
+        document.getElementById('exportProgressNotice').innerHTML = noticeHtml;
+        document.getElementById('exportProgressLog').innerHTML = logHtml;
+        document.getElementById('exportProgressLog').scrollTop = document.getElementById('exportProgressLog').scrollHeight;
+        // 完成时显示按钮
+        if (data.status === 'finished' || data.status === 'error') {
+          document.getElementById('viewResultsBtn').style.display = 'inline-block';
+          polling = false;
+        }
+      })
+      .catch(err => {
+        showExportError('进度查询失败');
+        polling = false;
+      });
+    if (polling) {
+      setTimeout(poll, 1200);
+    }
+  }
+  poll();
+}
+
+function showExportError(error) {
+  const progressBar = document.getElementById('exportProgressBar');
+  const details = document.getElementById('exportProgressDetails');
+  
+  progressBar.style.width = '100%';
+  progressBar.className = 'progress-bar bg-danger';
+  
+  details.innerHTML = `<div id=\"exportProgressNotice\"><div class=\"alert alert-danger\"><h6><i class=\"fas fa-exclamation-triangle me-2\"></i>导出失败</h6><p>${error}</p></div></div><div id=\"exportProgressLog\"></div>`;
+  document.getElementById('exportProgressLog').scrollTop = document.getElementById('exportProgressLog').scrollHeight;
+}
+
+function viewResults() {
+  // 切换到文件浏览器TAB
+  const filesTab = document.getElementById('files-tab');
+  const tab = new bootstrap.Tab(filesTab);
+  tab.show();
+  
+  // 刷新文件树
+  loadFileTree();
+  
+  // 关闭模态框
+  const modal = bootstrap.Modal.getInstance(document.getElementById('exportProgressModal'));
+  modal.hide();
+}
+
+// 加载文件树并初始化jsTree
+function loadFileTree() {
+  fetch('/export-data/files')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        currentFileTree = data.files;
+        renderJsTree(currentFileTree);
+      } else {
+        console.error('加载文件列表失败:', data.error);
+      }
+    })
+    .catch(error => {
+      console.error('加载文件列表失败:', error);
+    });
+}
+
+// 将后端文件树数据转换为jsTree格式
+function convertToJsTreeData(nodes) {
+  return nodes.map(item => {
+    let icon = item.type === 'folder'
+      ? 'jstree-folder'
+      : (item.is_image ? 'jstree-image' : 'jstree-file');
+    return {
+      id: item.path,
+      text: item.name,
+      icon: icon,
+      children: item.type === 'folder' && item.children ? convertToJsTreeData(item.children) : false,
+      data: item
+    };
+  });
+}
+
+// 渲染jsTree
+function renderJsTree(treeData) {
+  $('#fileTree').jstree('destroy');
+  $('#fileTree').jstree({
+    core: {
+      data: convertToJsTreeData(treeData),
+      themes: {
+        stripes: true
+      }
+    },
+    plugins: ['wholerow']
+  });
+
+  $('#fileTree').off('select_node.jstree').on('select_node.jstree', function(e, data) {
+    const item = data.node.data;
+    if (item.type === 'file') {
+      showFileContent(item);
+    } else if (item.type === 'folder') {
+      // 文件夹只展开/收起，不显示内容
+      $('#fileTree').jstree('toggle_node', data.node);
+    }
+  });
+}
+
+// 显示文件内容
+function showFileContent(item) {
+  const contentContainer = document.getElementById('fileContent');
+  if (item.type === 'folder') {
+    contentContainer.innerHTML = `
+      <div class="text-center">
+        <i class="fas fa-folder fa-3x text-warning mb-3"></i>
+        <h5>${item.name}</h5>
+        <p class="text-muted">文件夹</p>
+      </div>
+    `;
+  } else if (item.is_image) {
+    contentContainer.innerHTML = `
+      <div class="image-preview">
+        <img src="/export-data/image/${item.path}" alt="${item.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <div style="display:none; color: #dc3545;">
+          <i class="fas fa-exclamation-triangle"></i> 图片加载失败
+        </div>
+      </div>
+      <div class="file-info">
+        <h6>文件信息</h6>
+        <p><strong>文件名:</strong> ${item.name}</p>
+        <p><strong>路径:</strong> ${item.path}</p>
+        <p><strong>大小:</strong> ${formatFileSize(item.size)}</p>
+        <p><strong>类型:</strong> 图片文件</p>
+      </div>
+    `;
+  } else {
+    contentContainer.innerHTML = `
+      <div class="text-center">
+        <i class="fas fa-file fa-3x text-muted mb-3"></i>
+        <h5>${item.name}</h5>
+        <p class="text-muted">文件</p>
+      </div>
+      <div class="file-info">
+        <h6>文件信息</h6>
+        <p><strong>文件名:</strong> ${item.name}</p>
+        <p><strong>路径:</strong> ${item.path}</p>
+        <p><strong>大小:</strong> ${formatFileSize(item.size)}</p>
+        <p><strong>类型:</strong> ${item.extension ? item.extension.toUpperCase() : '未知'} 文件</p>
+      </div>
+    `;
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 清空导出目录
+function clearExportDirectory() {
+  if (!confirm('确定要清空导出目录吗？此操作不可恢复！')) {
+    return;
+  }
+  
+  fetch('/export-data/clear', {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      AppUtils.showMessage('导出目录已清空', 'success');
+      loadFileTree();
+    } else {
+      AppUtils.showMessage('清空失败: ' + data.error, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('清空失败:', error);
+    AppUtils.showMessage('清空失败', 'error');
+  });
+}
+
+// 刷新文件浏览器
+function refreshFileBrowser() {
+  loadFileTree();
+  AppUtils.showMessage('文件列表已刷新', 'info');
+}
+</script>
+{% endblock %} 

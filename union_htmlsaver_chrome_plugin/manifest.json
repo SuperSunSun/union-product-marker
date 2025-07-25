@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Shopee HTML Downloader",
+  "version": "1.1",
+  "description": "Open popup sidebar for saving visited Shopee pages as HTML.",
+  "permissions": ["downloads", "tabs", "scripting", "storage", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": "icon.png"
+  }
+}

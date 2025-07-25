@@ -1,0 +1,502 @@
+{% extends 'layout.html' %}
+{% block title %}批量标注工具{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>批量标注工具</h2>
+  <div class="d-flex align-items-center gap-3">
+    <div class="image-controls">
+      <label for="imageDisplayMode" class="form-label mb-0">图片显示:</label>
+      <!-- 图片模式选择器将在这里动态生成 -->
+    </div>
+  </div>
+</div>
+  
+  <!-- 操作区域 -->
+  <div class="card mb-4">
+    <div class="card-body d-flex flex-column flex-md-row align-items-center justify-content-between">
+      <div>
+        <p class="mb-2">下载当前所有标注数据，编辑后再上传：</p>
+        <a href="{{ url_for('batch_annotation.export_annotation_csv') }}" class="btn btn-success">
+          <i class="fas fa-download me-2"></i>下载CSV模板
+        </a>
+      </div>
+      <div>
+        <form id="uploadForm" enctype="multipart/form-data">
+          <label class="form-label mb-1" for="uploadCsvInput">上传编辑后的CSV：</label>
+          <input type="file" class="form-control d-inline-block" id="uploadCsvInput" name="file" accept=".csv" required style="width:220px;display:inline-block;">
+          <button type="submit" class="btn btn-primary ms-2" id="uploadCsvBtn" name="uploadCsvBtn">
+            <i class="fas fa-upload me-1"></i>上传并比对
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 数据表格区域 -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span id="tableTitle">当前标注数据</span>
+      <div class="d-flex align-items-center gap-3">
+        <span id="changeSummary" class="text-muted"></span>
+        <div class="form-check" id="filterCheckbox" style="display:none;">
+          <input class="form-check-input" type="checkbox" id="showUnchanged" name="showUnchanged" checked onchange="toggleUnchanged()">
+          <label class="form-check-label" for="showUnchanged">显示未变更项</label>
+        </div>
+        <button type="submit" class="btn btn-success" id="confirmSave" style="display:none;" form="confirmForm">
+          <i class="fas fa-save me-2"></i>保存选中项
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <form id="confirmForm">
+        <div class="table-container">
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover product-table" id="dataTable" style="font-size: 0.85em;">
+              <thead>
+                <tr>
+                  <th style="width: 100px;">
+                    <div class="d-flex align-items-center">
+                      <input type="checkbox" id="selectAll" name="selectAll" onclick="toggleSelectAll(this)" disabled style="margin-right: 4px;">
+                      <span>变化字段</span>
+                    </div>
+                  </th>
+                  <th style="width: 40px;">
+                    <div>ID</div>
+                    <span class="field-tag">id</span>
+                  </th>
+                  <th style="width: 100px;">
+                    <div>基础名称</div>
+                    <span class="field-tag">name</span>
+                  </th>
+                  <th style="width: 150px;">
+                    <div>统一名称</div>
+                    <span class="field-tag">unified_name</span>
+                  </th>
+                  <th style="width: 80px;">
+                    <div>品牌</div>
+                    <span class="field-tag">brand</span>
+                  </th>
+                  <th style="width: 85px;">
+                    <div>价格（上架）</div>
+                    <span class="field-tag">price_listed</span>
+                  </th>
+                  <th style="width: 80px;">
+                    <div>价格（成本）</div>
+                    <span class="field-tag">price_cost</span>
+                  </th>
+                  <th style="width: 320px;">
+                    <div>图片</div>
+                    <span class="field-tag">images</span>
+                  </th>
+                  <th style="width: 100px;">
+                    <div>人工备注</div>
+                    <span class="field-tag">notes</span>
+                  </th>
+                  <th style="width: 100px;">
+                    <div>自动备注</div>
+                    <span class="field-tag">auto_notes</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="dataTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </form>
+      <div id="noChanges" style="display:none;">
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-check-circle fa-3x mb-3"></i>
+          <h5>没有发现变更</h5>
+          <p>您上传的CSV文件与数据库中的数据完全一致，无需更新。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_css %}
+<style>
+  /* 批量标注页面特定样式 */
+  
+  /* 文件上传区域样式 */
+  .upload-section {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  /* 控制按钮区域样式 */
+  .control-section {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* 表格容器样式 */
+  .table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+  
+  /* 变化字段列表样式 */
+  .change-fields { 
+    font-size: 0.75em; 
+    color: #666; 
+    line-height: 1.2; 
+    margin-left: 8px; 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 4px; 
+  }
+  
+  .change-fields .field-tag { 
+    font-size: 1em; 
+    font-weight: bold; 
+    color: red; 
+  }
+  
+  /* 响应式调整 */
+  @media (max-width: 768px) {
+    .upload-section {
+      padding: 1rem;
+    }
+    
+    .control-section {
+      padding: 0.75rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block page_js %}
+<script src="{{ url_for('static', filename='js/lazy-load.js') }}"></script>
+<script src="{{ url_for('static', filename='js/image-components.js') }}"></script>
+<script>
+let currentData = [];
+let diffRecords = [];
+let selectedRecords = [];
+
+// 页面加载时初始化图片组件系统和图片显示模式选择器
+
+document.addEventListener('DOMContentLoaded', function () {
+  ImageComponents.init({
+    defaultMode: 'local',
+    lazyLoad: true,
+    placeholder: '/static/images/placeholder.svg'
+  });
+  // 读取本地存储的图片显示模式
+  const savedMode = localStorage.getItem('imageDisplayMode') || 'local';
+  const imageControls = document.querySelector('.image-controls');
+  const modeSelector = ImageComponents.createImageModeSelector({
+    id: 'imageDisplayMode',
+    defaultMode: savedMode,
+    onModeChange: function(mode) {
+      localStorage.setItem('imageDisplayMode', mode);
+      ImageComponents.setImageDisplayMode(mode, '.image-thumbnail');
+      modeSelector.value = mode; // 保证selectbox同步
+    }
+  });
+  imageControls.appendChild(modeSelector);
+  modeSelector.value = savedMode;
+  ImageComponents.setImageDisplayMode(savedMode, '.image-thumbnail');
+});
+
+// 页面加载时获取当前数据
+document.addEventListener('DOMContentLoaded', function() {
+  loadCurrentData();
+  
+  // 懒加载初始化 - 完全迁移annotation_list.html的逻辑
+  LazyLoader.init({
+    rootMargin: '100px',
+    threshold: 0.1,
+    selector: '.lazy-image',
+    placeholder: '/static/images/placeholder.svg'
+  });
+  
+  // 图片加载控制 - 完全迁移annotation_list.html的逻辑
+  document.getElementById("loadImagesCheck").addEventListener("change", function() {
+    const shouldLoadImages = this.checked;
+    document.querySelectorAll('#dataTable .image-placeholder').forEach(placeholder => {
+      const img = placeholder.querySelector('img.lazy-image');
+      const localPath = placeholder.getAttribute('data-local-path');
+      
+      if (shouldLoadImages && localPath?.trim()) {
+        img.setAttribute('data-local-src', localPath);
+        img.setAttribute('data-use-local', 'true');
+        if (LazyLoader.isInViewport?.(img)) LazyLoader.forceLoad(img);
+      } else {
+        img.removeAttribute('data-local-src');
+        img.removeAttribute('data-src');
+        img.style.display = 'none';
+        if (img.nextElementSibling) {
+          img.nextElementSibling.style.display = 'flex';
+        }
+      }
+    });
+  });
+  
+  // 默认加载图片
+  document.getElementById("loadImagesCheck").dispatchEvent(new Event('change'));
+});
+
+function loadCurrentData() {
+  fetch('{{ url_for("batch_annotation.get_current_data") }}')
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        AppUtils.showMessage(data.error, 'danger');
+        return;
+      }
+      currentData = data.records || [];
+      renderTable(currentData, false);
+      document.getElementById('tableTitle').innerText = `当前标注数据 (共 ${currentData.length} 条)`;
+      
+      // 禁用表头checkbox
+      document.getElementById('selectAll').disabled = true;
+    })
+    .catch(err => {
+      AppUtils.showMessage("加载数据失败: " + err, 'danger');
+    });
+}
+
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+  const submitBtn = this.querySelector('button[type="submit"]');
+  const originalText = submitBtn.innerHTML;
+
+  AppUtils.showLoading(submitBtn, '处理中...');
+
+  fetch('{{ url_for("batch_annotation.upload_annotation_csv") }}', {
+    method: "POST",
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      AppUtils.showMessage(data.error, 'danger');
+      return;
+    }
+    diffRecords = data.records || [];
+    selectedRecords = diffRecords.filter(r => r.has_changes);
+    renderTable(diffRecords, true);
+    document.getElementById('changeSummary').innerText = `共 ${data.summary.total} 条，变更 ${data.summary.changed} 条`;
+    document.getElementById('filterCheckbox').style.display = 'block';
+    document.getElementById('selectAll').style.display = 'block';
+    document.getElementById('selectAll').disabled = false; // 启用表头checkbox
+    document.getElementById('confirmSave').style.display = data.summary.changed > 0 ? 'block' : 'none';
+    document.getElementById('noChanges').style.display = data.summary.changed > 0 ? 'none' : 'block';
+    document.getElementById('tableTitle').innerText = '数据比对结果';
+    
+    // 默认只显示变化的内容
+    document.getElementById('showUnchanged').checked = false;
+    toggleUnchanged();
+  })
+  .catch(err => {
+    AppUtils.showMessage("上传失败: " + err, 'danger');
+  })
+  .finally(() => {
+    AppUtils.hideLoading(submitBtn, originalText);
+  });
+});
+
+function renderTable(records, isDiffMode) {
+  const tbody = document.getElementById("dataTableBody");
+  tbody.innerHTML = '';
+  let hasChange = false;
+  
+  records.forEach((row, i) => {
+    const tr = document.createElement("tr");
+    if (isDiffMode) {
+      tr.className = row.has_changes ? "table-warning" : "unchanged";
+      if (!row.has_changes && !document.getElementById('showUnchanged').checked) {
+        tr.style.display = 'none';
+      }
+      if (row.has_changes) {
+        hasChange = true;
+      }
+    }
+    
+    tr.innerHTML = `
+      <td>${formatChangeColumn(row, i, isDiffMode)}</td>
+      <td>${row.id}</td>
+      <td>${formatCell(row.name, 'name', row, isDiffMode)}</td>
+      <td>${formatCell(row.unified_name, 'unified_name', row, isDiffMode)}</td>
+      <td>${formatCell(row.brand_annotated, 'brand', row, isDiffMode)}</td>
+      <td>${formatCell(row.price_listed, 'price_listed', row, isDiffMode)}</td>
+      <td>${formatCell(row.price_cost, 'price_cost', row, isDiffMode)}</td>
+      <td>${formatImageCell(row)}</td>
+      <td>${formatCell(row.notes, 'notes', row, isDiffMode)}</td>
+      <td>${formatCell(row.auto_notes, 'auto_notes', row, isDiffMode)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (isDiffMode) {
+    // 绑定checkbox事件
+    document.querySelectorAll(".select-row").forEach(cb => {
+      cb.addEventListener("change", (e) => {
+        const i = parseInt(e.target.dataset.index);
+        const rec = diffRecords[i];
+        if (e.target.checked) {
+          if (!selectedRecords.includes(rec)) selectedRecords.push(rec);
+        } else {
+          selectedRecords = selectedRecords.filter(r => r !== rec);
+        }
+      });
+    });
+  }
+  
+  // 表格渲染完成后，重新初始化懒加载和图片控制
+  setTimeout(() => {
+    // 重新初始化懒加载
+    if (window.LazyLoader) {
+      LazyLoader.init({
+        rootMargin: '100px',
+        threshold: 0.1,
+        selector: '.lazy-image',
+        placeholder: '/static/images/placeholder.svg'
+      });
+    }
+    
+    // 重新应用图片加载控制
+    const loadImagesCheck = document.getElementById("loadImagesCheck");
+    if (loadImagesCheck) {
+      loadImagesCheck.dispatchEvent(new Event('change'));
+    }
+  }, 100);
+}
+
+function formatChangeColumn(row, index, isDiffMode) {
+  if (!isDiffMode) {
+    return '<input type="checkbox" disabled>';
+  }
+  
+  const checkbox = `<input class='form-check-input select-row change-checkbox' type='checkbox' data-index='${index}' ${row.has_changes ? 'checked' : ''}>`;
+  
+  if (row.has_changes && row.changes) {
+    const changeFields = Object.keys(row.changes).map(field => {
+      return `<span class="field-tag">${field}</span>`;
+    }).join('');
+    
+    return `<div class="change-column">${checkbox}<div class="change-content"><div class="change-fields">${changeFields}</div></div></div>`;
+  } else {
+    return `<div class="change-column">${checkbox}</div>`;
+  }
+}
+
+function formatCell(value, fieldName, row, isDiffMode) {
+  if (!isDiffMode || !row || !row.changes) {
+    // 对于空值显示为"-"，与数据标注列表保持一致
+    return value || '-';
+  }
+  
+  const change = row.changes[fieldName];
+  
+  if (change) {
+    // 变化单元格中，箭头前后有一方为空时显示为"（空）"
+    const oldVal = change.old || '（空）';
+    const newVal = change.new || '（空）';
+    return `<div class="text-muted small">${oldVal}</div><div class="text-primary">→ ${newVal}</div>`;
+  } else {
+    // 对于空值显示为"-"，与数据标注列表保持一致
+    return value || '-';
+  }
+}
+
+function formatImageCell(row) {
+  const imageConfig = [
+    ['main', '主图'], ['front', '正面'], ['back', '背面'],
+    ['box', '整箱'], ['extra', '其他']
+  ];
+  let imageHtml = '<div class="image-thumbnails">';
+  imageConfig.forEach(([imgType, imgLabel]) => {
+    let localPath = '';
+    if (row.image_local_paths && row.image_local_paths[imgType]) {
+      localPath = row.image_local_paths[imgType];
+    }
+    // 用ImageComponents.createImageThumbnail生成HTML
+    const thumb = ImageComponents.createImageThumbnail({
+      localSrc: localPath,
+      alt: imgLabel,
+      label: imgLabel
+    });
+    imageHtml += thumb.outerHTML;
+  });
+  imageHtml += '</div>';
+  return imageHtml;
+}
+
+function toggleUnchanged() {
+  const show = document.getElementById('showUnchanged').checked;
+  document.querySelectorAll('tr.unchanged').forEach(tr => {
+    tr.style.display = show ? '' : 'none';
+  });
+}
+
+function toggleSelectAll(master) {
+  const checkboxes = document.querySelectorAll(".select-row");
+  selectedRecords = [];
+  checkboxes.forEach((cb, i) => {
+    cb.checked = master.checked;
+    if (master.checked) {
+      const rec = diffRecords[i];
+      if (!selectedRecords.includes(rec)) selectedRecords.push(rec);
+    }
+  });
+}
+
+document.getElementById('confirmForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  if (selectedRecords.length === 0) {
+    AppUtils.showMessage("请先勾选需要保存的项", 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('confirmSave');
+  const originalText = btn.innerHTML;
+  AppUtils.showLoading(btn, '保存中...');
+
+  fetch('{{ url_for("batch_annotation.save_annotation_changes") }}', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ records: selectedRecords })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      AppUtils.showMessage(data.error, 'danger');
+      return;
+    }
+    AppUtils.showMessage(data.message, 'success');
+    setTimeout(() => {
+      loadCurrentData(); // 重新加载数据
+      // 重置界面状态
+      document.getElementById('filterCheckbox').style.display = 'none';
+      document.getElementById('selectAll').style.display = 'none';
+      document.getElementById('confirmSave').style.display = 'none';
+      document.getElementById('noChanges').style.display = 'none';
+      document.getElementById('changeSummary').innerText = '';
+      document.getElementById('tableTitle').innerText = '当前标注数据';
+    }, 1500);
+  })
+  .catch(err => {
+    AppUtils.showMessage("保存失败: " + err, 'danger');
+  })
+  .finally(() => {
+    AppUtils.hideLoading(btn, originalText);
+  });
+});
+
+function renderRowCheckbox(row, idx) {
+  const id = `selectRow_${idx}`;
+  return `<input type="checkbox" class="select-row" id="${id}" name="selectRow" value="${row.id || ''}"><label for="${id}" class="visually-hidden">选择</label>`;
+}
+</script>
+{% endblock %} 

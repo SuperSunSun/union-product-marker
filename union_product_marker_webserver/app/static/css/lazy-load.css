@@ -1,0 +1,113 @@
+/* 懒加载样式 */
+.lazy-image {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  background: #f8f9fa;
+  border-radius: 4px;
+  position: relative;
+}
+
+.lazy-image.lazy-loaded {
+  opacity: 1;
+}
+
+.lazy-image.lazy-loading {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.lazy-image.lazy-error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 图片占位符样式 */
+.image-placeholder .lazy-image {
+  max-width: 56px !important;
+  max-height: 56px !important;
+  width: auto !important;
+  height: auto !important;
+  display: block;
+  object-fit: contain !important;
+  margin: 0 auto;
+  background: transparent;
+}
+
+/* 加载状态指示器 */
+.lazy-loading::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 1;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 错误状态样式 */
+.lazy-error::after {
+  content: '⚠';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #dc3545;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 表格中的懒加载图片特殊样式 */
+#productTable .image-placeholder .lazy-image {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+}
+
+#productTable .image-placeholder .lazy-image.lazy-loading {
+  background: #e9ecef;
+}
+
+#productTable .image-placeholder .lazy-image.lazy-loaded {
+  background: transparent;
+}
+
+/* 懒加载图片的hover效果 */
+.lazy-image:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease-in-out;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .lazy-image {
+    transition: opacity 0.2s ease-in-out;
+  }
+  
+  .lazy-loading::before {
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+  }
+} 

@@ -1,0 +1,176 @@
+{% extends 'layout.html' %}
+{% block title %}导入基础信息{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>导入基础商品信息（CSV）</h2>
+</div>
+
+<form id="uploadForm" action="/import-basic/upload-csv" method="post" enctype="multipart/form-data" class="mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col-auto">
+      <input type="file" class="form-control" name="file" accept=".csv" required>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-upload me-2"></i>上传并比对
+      </button>
+    </div>
+  </div>
+</form>
+
+<div id="resultArea" style="display: none">
+  <div class="form-check mb-2">
+    <input class="form-check-input" type="checkbox" id="toggleUnchanged" checked onchange="toggleUnchanged()">
+    <label class="form-check-label" for="toggleUnchanged">
+      显示未变化项
+    </label>
+  </div>
+
+  <form id="confirmForm">
+    <table class="table table-bordered table-sm align-middle">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>
+          <th>ID</th>
+          <th>名称（CSV）</th>
+          <th>数据库中名称</th>
+          <th>状态</th>
+          <th>调试信息</th>
+        </tr>
+      </thead>
+      <tbody id="resultTable"></tbody>
+    </table>
+    <button type="submit" class="btn btn-success">
+      <i class="fas fa-save me-2"></i>导入选中项
+    </button>
+  </form>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+let allRecords = [];
+let selectedRecords = [];
+
+function toggleUnchanged() {
+  const show = document.getElementById('toggleUnchanged').checked;
+  document.querySelectorAll('tr.unchanged').forEach(tr => {
+    tr.style.display = show ? '' : 'none';
+  });
+}
+
+const uploadForm = document.getElementById('uploadForm');
+uploadForm.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const formData = new FormData(uploadForm);
+  const submitBtn = this.querySelector('button[type="submit"]');
+  const originalText = submitBtn.innerHTML;
+  
+  AppUtils.showLoading(submitBtn, '处理中...');
+  
+  fetch(uploadForm.action, {
+    method: "POST",
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      AppUtils.showMessage(data.error, 'danger');
+      return;
+    }
+    allRecords = data.records || [];
+    selectedRecords = allRecords.filter(r => r.diff);
+    renderTable(allRecords);
+    AppUtils.showMessage(`成功处理 ${allRecords.length} 条记录，其中 ${selectedRecords.length} 条需要更新`, 'success');
+  })
+  .catch(err => {
+    AppUtils.showMessage("上传失败: " + err, 'danger');
+  })
+  .finally(() => {
+    AppUtils.hideLoading(submitBtn, originalText);
+  });
+});
+
+function renderTable(records) {
+  const tbody = document.getElementById("resultTable");
+  tbody.innerHTML = '';
+  records.forEach((row, i) => {
+    const tr = document.createElement("tr");
+    tr.className = row.diff ? "table-danger" : "unchanged";
+    tr.innerHTML = `
+      <td><input class='form-check-input select-row' type='checkbox' data-index='${i}' ${row.diff ? 'checked' : ''}></td>
+      <td>${row.id || '(无)'}</td>
+      <td>${row.name_csv || ''}</td>
+      <td>${row.name_db || '(无)'}</td>
+      <td>
+        ${row.diff ? 
+          '<span class="badge bg-warning">更新</span>' : 
+          '<span class="badge bg-secondary">无变化</span>'
+        }
+      </td>
+      <td><small class="text-muted">${row.debug_reason || ''}</small></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.querySelectorAll(".select-row").forEach(cb => {
+    cb.addEventListener("change", (e) => {
+      const i = parseInt(e.target.dataset.index);
+      const rec = allRecords[i];
+      if (e.target.checked) {
+        if (!selectedRecords.includes(rec)) selectedRecords.push(rec);
+      } else {
+        selectedRecords = selectedRecords.filter(r => r !== rec);
+      }
+    });
+  });
+
+  document.getElementById("resultArea").style.display = "block";
+}
+
+function toggleSelectAll(master) {
+  const checkboxes = document.querySelectorAll(".select-row");
+  selectedRecords = [];
+  checkboxes.forEach((cb, i) => {
+    cb.checked = master.checked;
+    if (master.checked) {
+      const rec = allRecords[i];
+      if (!selectedRecords.includes(rec)) selectedRecords.push(rec);
+    }
+  });
+}
+
+const confirmForm = document.getElementById('confirmForm');
+confirmForm.addEventListener('submit', function(e) {
+  e.preventDefault();
+  if (selectedRecords.length === 0) {
+    AppUtils.showMessage("请先勾选需要导入的项", 'warning');
+    return;
+  }
+
+  const submitBtn = this.querySelector('button[type="submit"]');
+  const originalText = submitBtn.innerHTML;
+  
+  AppUtils.showLoading(submitBtn, '导入中...');
+
+  fetch("/import-basic/upload-json", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ records: selectedRecords })
+  })
+  .then(res => res.json())
+  .then(data => {
+    AppUtils.showMessage(data.message, 'success');
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 1500);
+  })
+  .catch(err => {
+    AppUtils.showMessage("导入失败: " + err, 'danger');
+  })
+  .finally(() => {
+    AppUtils.hideLoading(submitBtn, originalText);
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,234 @@
+{% extends 'layout.html' %}
+{% block title %}爬虫数据上传{% endblock %}
+{% block content %}
+<!-- 上半部分 - 上传区域 -->
+<div class="upload-section mb-4">
+  <h2>爬虫数据上传</h2>
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header">
+          <h5>上传JSON文件</h5>
+        </div>
+        <div class="card-body">
+          <form id="uploadForm" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label for="jsonFile" class="form-label">选择JSON文件</label>
+              <input type="file" class="form-control" id="jsonFile" name="file" accept=".json" required>
+              <div class="form-text">支持爬虫生成的JSON格式文件</div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-upload me-2"></i>上传并预览
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header">
+          <h5>文件信息</h5>
+        </div>
+        <div class="card-body" id="fileInfo">
+          <p class="text-muted">请先上传文件</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 下半部分 - 预览区域 (初始隐藏) -->
+<div id="previewSection" style="display: none;">
+  <!-- 预览控制栏 -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-4 image-controls">
+          <label for="imageDisplayMode" class="form-label mb-0">图片显示:</label>
+          <!-- 图片模式选择器将在这里动态生成 -->
+        </div>
+        <div class="col-md-8 text-end">
+          <span id="summary" class="text-muted me-3"></span>
+          <button type="button" class="btn btn-success" id="confirmImport">
+            <i class="fas fa-save me-2"></i>确认导入
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 预览主布局 -->
+  <div class="preview-layout">
+    <!-- 左侧导航 -->
+    <div class="preview-sidebar card">
+      <div class="card-body d-flex flex-column">
+        <input type="text" class="form-control sidebar-search" id="sidebarSearch" placeholder="搜索ID/名称/品牌...">
+        
+        <div class="d-flex justify-content-around my-2 small">
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="navView" id="viewBySource" value="source">
+                <label class="form-check-label" for="viewBySource" style="cursor:pointer;">
+                    按来源
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="navView" id="viewById" value="id" checked>
+                <label class="form-check-label" for="viewById" style="cursor:pointer;">
+                    按ID
+                </label>
+            </div>
+        </div>
+        <hr class="my-1">
+
+        <div id="sidebarNav" class="flex-grow-1" style="overflow-y: auto; min-height: 0;"></div>
+      </div>
+    </div>
+    <!-- 右侧内容 -->
+    <div class="preview-content card">
+      <div class="card-body" id="previewContent">
+        <!-- 产品卡片将在这里渲染 -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<!-- 引入商品预览插件 -->
+<script src="{{ url_for('static', filename='js/product_preview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/lazy-load.js') }}"></script>
+{{ super() }}
+
+<script>
+let currentData = null;
+
+// 文件上传处理
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+  const fileInput = document.getElementById('jsonFile');
+  if (!fileInput.files[0]) { 
+    AppUtils.showMessage('请选择文件', 'warning');
+    return; 
+  }
+  
+  const submitBtn = this.querySelector('button[type="submit"]');
+  const originalText = submitBtn.innerHTML;
+  
+  AppUtils.showLoading(submitBtn, '处理中...');
+  document.getElementById('fileInfo').innerHTML = '<p class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>正在处理文件...</p>';
+  
+  fetch('/crawler-upload/preview', {
+    method: 'POST', body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      AppUtils.showMessage('错误: ' + data.error, 'danger');
+      document.getElementById('fileInfo').innerHTML = `<p class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>错误: ${data.error}</p>`;
+      return;
+    }
+    currentData = data.data;
+    displayFileInfo(data);
+    // 使用插件渲染预览
+    ProductPreview.init({
+      container: '#previewSection',
+      data: currentData,
+      contentTarget: '#previewContent',
+      onImport: function(data) {
+        // 导入回调
+        if (!confirm('确认导入这些爬虫数据吗？这将更新数据库中的现有数据。')) { return; }
+        
+        const btn = document.getElementById('confirmImport');
+        const originalBtnText = btn.innerHTML;
+        
+        AppUtils.showLoading(btn, '导入中...');
+        
+        fetch('/crawler-upload/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: data.products })
+        })
+        .then(response => response.json())
+        .then(result => {
+          if (result.error) {
+            AppUtils.showMessage('导入失败: ' + result.error, 'danger');
+          } else {
+            AppUtils.showMessage(result.message, 'success');
+            document.getElementById('uploadForm').reset();
+            document.getElementById('previewSection').style.display = 'none';
+            document.getElementById('fileInfo').innerHTML = '<p class="text-muted">请先上传文件</p>';
+            currentData = null;
+          }
+        })
+        .catch(error => { 
+          console.error('Error:', error); 
+          AppUtils.showMessage('导入失败: ' + error.message, 'danger');
+        })
+        .finally(() => {
+          AppUtils.hideLoading(btn, originalBtnText);
+        });
+      }
+    });
+    initImageModeSelector();
+    document.getElementById('previewSection').style.display = 'block';
+    AppUtils.showMessage(`成功加载 ${data.stats.total_products} 件商品数据`, 'success');
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    AppUtils.showMessage('上传失败: ' + error.message, 'danger');
+    document.getElementById('fileInfo').innerHTML = '<p class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>上传失败，请查看控制台日志</p>';
+  })
+  .finally(() => {
+    AppUtils.hideLoading(submitBtn, originalText);
+  });
+});
+
+function displayFileInfo(data) {
+  const fileInfo = document.getElementById('fileInfo');
+  const stats = data.stats;
+  fileInfo.innerHTML = `
+    <div class="row">
+      <div class="col-6">
+        <strong>文件名:</strong><br>
+        <span class="text-muted">${data.filename}</span>
+      </div>
+      <div class="col-6">
+        <strong>数据来源:</strong><br>
+        <span class="text-primary">${stats.total_sources} 个</span>
+      </div>
+    </div>
+    <div class="row mt-2">
+      <div class="col-6">
+        <strong>商品总数:</strong><br>
+        <span class="text-success">${stats.total_products} 件</span>
+      </div>
+      <div class="col-6">
+        <strong>来源详情:</strong><br>
+        ${stats.sources.map(s => `<span class="badge bg-secondary me-1">${s.name}: ${s.count}</span>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// 上传成功后，初始化图片显示模式选择器
+function initImageModeSelector() {
+  const imageControls = document.querySelector('.image-controls');
+  if (!imageControls || imageControls.querySelector('.image-mode-selector')) return;
+  const modeSelector = ImageComponents.createImageModeSelector({
+    id: 'imageDisplayMode',
+    defaultMode: 'local',
+    modes: [
+      { value: 'local', label: '本地图片' },
+      { value: 'remote', label: '原始图片' }
+    ],
+    onModeChange: function(mode) {
+      // 切换图片显示模式
+      ImageComponents.setImageDisplayMode(mode, '.image-thumbnail');
+    }
+  });
+  imageControls.appendChild(modeSelector);
+  ImageComponents.setImageDisplayMode('local', '.image-thumbnail');
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,511 @@
+/* Union Product Marker 基础样式 */
+
+/* 通用重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #f8f9fa;
+    overflow-x: hidden;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    color: #007bff !important;
+}
+
+/* 侧边栏 */
+.sidebar {
+    width: 250px;
+    background: #343a40;
+    color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid #495057;
+}
+.sidebar-header h4 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+.sidebar-nav {
+    padding: 20px 0;
+}
+.sidebar-nav a {
+    display: block;
+    color: #adb5bd;
+    text-decoration: none;
+    padding: 12px 20px;
+    margin: 2px 0;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+}
+.sidebar-nav a:hover {
+    color: #fff;
+    background-color: #495057;
+    border-left-color: #007bff;
+}
+.sidebar-nav a.active {
+    color: #fff;
+    background-color: #007bff;
+    border-left-color: #0056b3;
+    font-weight: 500;
+}
+
+/* 主内容区 */
+.main-content {
+    flex: 1;
+    margin-left: 250px;
+    min-height: 100vh;
+    background-color: #f8f9fa;
+    min-width: 0;
+}
+.content-wrapper {
+    padding: 30px;
+    max-width: 100%;
+}
+
+/* 卡片、按钮、表格等通用样式 */
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.5rem;
+}
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
+}
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+.alert {
+    border-radius: 0.5rem;
+    border: none;
+}
+.badge {
+    font-size: 0.75em;
+}
+
+/* 自定义样式 */
+.diff-highlight {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.status-active {
+    color: #28a745;
+}
+
+.status-inactive {
+    color: #dc3545;
+}
+
+/* 通用高亮/状态色 */
+.diff-highlight {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+.status-active {
+    color: #28a745;
+}
+.status-inactive {
+    color: #dc3545;
+}
+
+/* 通用表格样式 */
+table {
+    border-collapse: collapse;
+    margin-top: 8px;
+    width: 100%;
+    font-size: 0.9em;
+    table-layout: fixed;
+}
+th, td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    text-align: left;
+    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    font-size: 0.95em;
+}
+
+/* 响应式设计 */
+@media (max-width: 992px) {
+    .main-content {
+        margin-left: 0;
+    }
+    .content-wrapper {
+        padding: 20px;
+    }
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    .container {
+        padding: 0 15px;
+    }
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}
+@media (min-width: 769px) {
+    .mobile-menu-toggle {
+        display: none;
+    }
+}
+
+/* 滚动条样式 */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+.sidebar::-webkit-scrollbar-track {
+    background: #495057;
+}
+.sidebar::-webkit-scrollbar-thumb {
+    background: #6c757d;
+    border-radius: 3px;
+}
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}
+
+/* 其它通用样式可继续补充... */
+
+/* --- 共享的预览/管理页面样式 --- */
+
+/* 统计区 */
+.statistics-section .card-body {
+  padding: 1.5rem;
+}
+.statistics-section h3 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+/* 来源详情统计 */
+.source-stat-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+.source-stat-row {
+  width: 230px;
+  min-width: 160px;
+  max-width: 250px;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #dee2e6;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.source-stat-row:hover {
+  background: #e9ecef;
+  border-left-color: #007bff;
+}
+.source-stat-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.source-ratio {
+  font-weight: 600;
+  color: #495057;
+  font-size: 1rem;
+}
+.source-counts {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+
+/* 预览区域核心布局 */
+.preview-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+/* 预览侧边栏 (支持吸顶) */
+.preview-sidebar {
+  width: 320px; /* 统一宽度 */
+  flex-shrink: 0;
+  position: sticky;
+  top: 20px; /* 吸顶距离 */
+  align-self: flex-start;
+  /* 高度由 flex 和 max-height 控制 */
+  max-height: calc(100vh - 40px); /* 视窗高度减去上下间距 */
+}
+.preview-sidebar .card {
+    height: 100%;
+}
+.preview-sidebar .card-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: calc(100vh - 90px); /* 需要额外减去card-header等的高度 */
+    overflow-y: auto;
+}
+#sidebarNav {
+    min-height: 0;
+}
+
+
+/* 预览主内容区 */
+.preview-content {
+  flex-grow: 1;
+  min-width: 0; /* 防止flex item溢出 */
+}
+
+/* 侧边栏导航列表 */
+.sidebar-search {
+  margin-bottom: 10px;
+}
+
+#sidebarNav .source-group {
+  margin-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+#sidebarNav .source-group:last-child {
+    border-bottom: none;
+}
+
+#sidebarNav .source-header {
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  padding: 5px 0;
+}
+#sidebarNav .source-header .arrow {
+  display: inline-block;
+  width: 16px;
+  transition: transform 0.2s;
+  margin-right: 6px;
+}
+#sidebarNav .source-list {
+  margin: 5px 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+#sidebarNav .source-list li {
+  margin-bottom: 3px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#sidebarNav .source-list li.active, 
+#sidebarNav .source-list li:hover {
+  background-color: #e3f2fd;
+}
+#sidebarNav .source-list li.active {
+    font-weight: bold;
+}
+
+/* 商品卡片 */
+.product {
+  background: white;
+  border: 1px solid #e0e0e0;
+  padding: 20px;
+  margin-bottom: 25px;
+  border-radius: 0.375rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  overflow-x: hidden;
+}
+.product-title {
+  margin-top: 0;
+  color: #2c3e50;
+  word-break: break-word;
+  font-size: 1.2em;
+  margin-bottom: 15px;
+  flex: 1;
+}
+.product-info {
+  margin: 15px 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 0.375rem;
+}
+.price-current { color: #dc3545; font-weight: bold; }
+.price-original { color: #fd7e14; }
+
+/* 图片 */
+.images {
+  margin: 15px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.image-container {
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px;
+  background: #f8f9fa;
+  position: relative;
+}
+.image-container img {
+  height: 120px;
+  width: 120px;
+  object-fit: contain;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.image-container img:hover { transform: scale(1.05); }
+.image-dimensions {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 5px;
+}
+
+/* 商品详情 */
+.product-details {
+  display: flex;
+  gap: 20px;
+  margin-top: 15px;
+}
+.detail-column {
+  flex: 1;
+  min-width: 0;
+}
+.product-details h4 {
+  color: #333;
+  margin-top: 15px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #007bff;
+  padding-bottom: 3px;
+  font-size: 1em;
+  font-weight: 600;
+}
+.product-details table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+  font-size: 0.9em;
+}
+.product-details table td {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  vertical-align: top;
+}
+.product-details table td:first-child {
+  background: #f8f9fa;
+  font-weight: 500;
+  width: 30%;
+}
+.product-details ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.product-details p {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+/* 来源分隔标题 */
+.source-section-header {
+  margin: 30px 0 20px 0;
+  position: sticky;
+  top: -1px;
+  background: #f8f9fa;
+  padding: 5px 0;
+  z-index: 5;
+}
+.source-section-header:first-child { margin-top: 0; }
+.source-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #0d6efd;
+}
+.source-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+/* 响应式调整 */
+@media (max-width: 992px) {
+  .preview-layout {
+    flex-direction: column;
+  }
+  .preview-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    max-height: 400px; /* 在小屏幕上限制高度 */
+    margin-bottom: 20px;
+  }
+  .preview-sidebar .card-body {
+    max-height: 350px;
+  }
+  .product-details {
+    flex-direction: column;
+    gap: 15px;
+  }
+  .statistics-section .row > div {
+    margin-bottom: 1rem;
+  }
+}
+
+.badge.small {
+  font-size: 0.7em;
+}
+.delete-btn {
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+.delete-btn:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
+} 

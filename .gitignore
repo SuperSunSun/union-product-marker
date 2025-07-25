@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Flask
+instance/
+.webassets-cache
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+uploads/
+exports/
+media/
+data/database.db
+
+# union_htmlsaver_chrome_plugin
+union_htmlsaver_chrome_plugin/output/
+
+# union_product_marker_webserver
+union_product_marker_webserver/data/database.db
+union_product_marker_webserver/exports/
+
+# union_scraper_core
+union_scraper_core/output/ 

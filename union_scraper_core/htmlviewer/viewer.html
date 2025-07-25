@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>商品信息总览</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      display: flex;
+      overflow-x: hidden;
+    }
+
+    #sidebar {
+      width: 250px;
+      background-color: #f5f5f5;
+      height: 100vh;
+      overflow-y: auto;
+      border-right: 1px solid #ccc;
+      padding: 10px;
+      box-sizing: border-box;
+      position: fixed;
+	  font-size: 0.8em;
+    }
+
+    #main {
+      margin-left: 250px;
+      padding: 20px;
+      flex: 1;
+      max-width: calc(100vw - 250px);
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+
+	.nav-link {
+	  display: block;
+	  margin-bottom: 8px;
+	  color: #333;
+	  text-decoration: none;
+	  white-space: nowrap;     /* ✅ 允许换行 */
+	  word-break: break-word;  /* ✅ 打断长单词或URL */
+	  max-width: 100%;         /* ✅ 防止撑出容器 */
+	}
+
+    .nav-link:hover {
+      text-decoration: underline;
+    }
+
+    .product {
+      border: 1px solid #ccc;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .images img {
+      height: 120px;
+      margin: 5px;
+      border: 1px solid #ddd;
+      cursor: pointer;
+    }
+
+    .images img:hover {
+      transform: scale(1.05);
+      transition: 0.2s;
+    }
+
+    .image-container {
+      display: inline-block;
+      margin: 5px;
+      text-align: center;
+    }
+
+    .image-dimensions {
+      font-size: 0.8em;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .product-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .col {
+      flex: 1 1 45%;
+      box-sizing: border-box;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin-top: 10px;
+      width: 100%;
+      table-layout: auto;
+    }
+
+    th, td {
+      border: 1px solid #999;
+      padding: 4px;
+      text-align: left;
+      word-break: break-word;
+      max-width: 200px;
+	  font-size:0.8em;
+    }
+	
+	td:first-child {
+	  width: 150px;
+	  /* white-space: nowrap; */
+	  font-weight: bold;
+	  color: #333;
+	}
+
+	td:nth-child(2) {
+	  width: auto;
+	  word-break: break-word;
+	}	
+
+    .product-title {
+      margin-top: 0;
+    }
+
+    .source-selector {
+      margin: 10px 0;
+      padding: 5px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .source-tag {
+      display: inline-block;
+      padding: 2px 6px;
+      background-color: #e0e0e0;
+      border-radius: 3px;
+      font-size: 0.8em;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h3>商品导航</h3>
+    <input type="file" id="jsonInput" accept=".json" />
+	<label style="display:block;margin-top:10px;font-size:0.5em">
+	  <input type="checkbox" id="useAbsolutePath" checked />
+	  使用绝对地址（base_path+URL）
+	</label>
+    <select id="sourceSelector" class="source-selector">
+      <option value="all">所有来源</option>
+    </select>
+	<hr />	
+    <div id="nav-links"></div>
+  </div>
+
+  <div id="main">
+    <h2 id="summary">请上传 JSON 文件</h2>
+    <div id="product-container"></div>
+  </div>
+
+  <script>
+    let currentData = null;
+    let currentSource = 'all';
+
+	window.addEventListener("DOMContentLoaded", () => {
+	  const saved = sessionStorage.getItem("useAbsolutePath");
+	  if (saved === "1") {
+		document.getElementById("useAbsolutePath").checked = true;
+	  }else{
+		document.getElementById("useAbsolutePath").checked = false;
+	  }	  
+	});  
+
+	document.getElementById("useAbsolutePath").addEventListener("change", function() {
+	  sessionStorage.setItem("useAbsolutePath", this.checked ? "1" : "0");
+      if (currentData) {
+        renderProducts(currentData);
+      }
+	});
+
+    document.getElementById("sourceSelector").addEventListener("change", function() {
+      currentSource = this.value;
+      sessionStorage.setItem("currentSource", currentSource);
+      if (currentData) {
+        renderProducts(currentData);
+      }
+    });
+  
+    document.getElementById("jsonInput").addEventListener("change", function (event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+	  reader.onload = function (e) {
+		try {
+			const data = JSON.parse(e.target.result);
+			
+			// 验证数据结构
+			if (!data.products || typeof data.products !== 'object') {
+				throw new Error('无效的数据结构：缺少products对象');
+			}
+			
+			currentData = data;
+			
+			// 恢复上次的source选择
+			const lastSource = sessionStorage.getItem("currentSource");
+			if (lastSource && data.products[lastSource]) {
+				currentSource = lastSource;
+			}
+			
+			renderProducts(data);
+		} catch (err) {
+			console.error('JSON解析错误:', err);
+			alert("无效的 JSON 文件！错误：" + err.message);
+		}
+	  };
+      reader.readAsText(file, "utf-8");
+    });
+
+    function renderProducts(data) {
+      const container = document.getElementById("product-container");
+      const navLinks = document.getElementById("nav-links");
+      const sourceSelector = document.getElementById("sourceSelector");
+      container.innerHTML = "";
+      navLinks.innerHTML = "";
+
+      // 更新来源选择器
+      const sources = Object.keys(data.products || {});
+      sourceSelector.innerHTML = '<option value="all">所有来源</option>' +
+        sources.map(s => `<option value="${s}">${s}</option>`).join('');
+      sourceSelector.value = currentSource;
+
+      const basePath = (data.base_path || "").replace(/\\/g, "/");
+      const useAbsolute = document.getElementById("useAbsolutePath").checked;
+      let totalProducts = 0;
+      let displayedProducts = [];
+
+      // 收集所有产品
+      if (currentSource === 'all') {
+        Object.entries(data.products || {}).forEach(([source, products]) => {
+          products.forEach(p => {
+            displayedProducts.push({...p, source});
+          });
+          totalProducts += products.length;
+        });
+      } else if (data.products?.[currentSource]) {
+        displayedProducts = data.products[currentSource].map(p => ({...p, source: currentSource}));
+        totalProducts = displayedProducts.length;
+      }
+
+      // 按ID排序
+      displayedProducts.sort((a, b) => Number(a.id) - Number(b.id));
+
+      document.getElementById("summary").innerText = 
+        `共 ${totalProducts} 件商品 | 当前显示：${currentSource === 'all' ? '所有来源' : currentSource} | 生成时间：${data.merged_at || '未知时间'}`;
+
+      for (const p of displayedProducts) {
+        const pid = `product-${p.source}-${p.id}`;
+
+        const a = document.createElement("a");
+        a.href = `#${pid}`;
+        a.className = "nav-link";
+		
+		var _pName = p.product_name || '未命名';
+		
+		a.title = _pName;
+        a.textContent = `[${p.source}] #${p.id} - ${_pName}`;
+        navLinks.appendChild(a);
+
+        const div = document.createElement("div");
+        div.className = "product";
+        div.id = pid;
+
+        // 使用新的图片URL结构
+        const images = (p.local_images || []).map(img => {
+          const safeImg = img.replace(/\\/g, "/");
+          const fullPath = useAbsolute && basePath ? `${basePath}/${safeImg}` : safeImg;
+          return `
+            <div class="image-container">
+              <img src="${fullPath}" alt="商品图片" onload="this.parentNode.querySelector('.image-dimensions').textContent = this.naturalWidth + '×' + this.naturalHeight" onclick="window.open('${fullPath}', '_blank')">
+              <div class="image-dimensions">加载中...</div>
+            </div>`;
+        }).join("");
+
+        const description = renderDescription(p.infos, p.source);
+        
+        div.innerHTML = `
+          <h3 class="product-title">
+            <span class="source-tag">${p.source}</span>
+            #${p.id} - ${p.product_name || "N/A"}
+          </h3>
+          <p>
+            <strong>品牌:</strong> ${p.brand || "N/A"} | 
+            <font style="color:red"><strong>价格:</strong> ${p.source === 'fairprice' ? '$' : ''}${p.source === 'shopee' ? 'S$' : ''}${p.price_current || "N/A"} </font>| 
+            <font style="color:orange"><strong>原价:</strong> ${p.source === 'fairprice' ? '$' : ''}${p.source === 'shopee' ? 'S$' : ''}${p.price_original || "N/A"} </font>
+          </p>
+          <p><strong>商品链接:</strong> <a href="${p.url}" target="_blank">商品页面</a></p>
+          <p><strong>抓取时间:</strong> ${p.crawled_at || "N/A"}</p>
+          <div class="images">${images}</div>
+          <div class="product-grid">
+            <div class="col">
+              ${description.leftColumn}
+            </div>
+            <div class="col">
+              ${description.rightColumn}
+            </div>
+          </div>
+        `;
+
+        container.appendChild(div);
+      }
+    }
+
+    function renderTable(title, obj) {
+      if (!obj || Object.keys(obj).length === 0) return "";
+      const rows = Object.entries(obj).map(([k, v]) => {
+        // 如果值是对象，将其展开为多行
+        if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+          return Object.entries(v).map(([subK, subV]) => 
+            `<tr><td>${subK}</td><td>${subV}</td></tr>`
+          ).join('');
+        }
+        // 如果值是数组，将其转换为列表
+        if (Array.isArray(v)) {
+          return `<tr><td>${k}</td><td><ul>${v.map(item => `<li>${item}</li>`).join('')}</ul></td></tr>`;
+        }
+        return `<tr><td>${k}</td><td>${v}</td></tr>`;
+      }).join("");
+      return title ? `<h4>${title}</h4><table>${rows}</table>` : `<table>${rows}</table>`;
+    }
+
+    function renderList(items) {
+      if (!Array.isArray(items) || items.length === 0) return "";
+      return `<ul>${items.map(i => `<li>${i}</li>`).join("")}</ul>`;
+    }
+
+    function renderDescription(infos, source) {
+      if (!infos) return {leftColumn: "", rightColumn: ""};
+      let leftColumn = "";
+      let rightColumn = "";
+      
+      if (source === 'fairprice') {
+        // 遍历并显示所有infos中的内容
+        for (const [key, value] of Object.entries(infos)) {
+          if (typeof value === 'object' && value !== null) {
+            if (key === 'script') continue; // 跳过script数据
+            
+            let content = '';
+            if (key === 'description') {
+              // 对description中的每个部分进行处理
+              for (const [descKey, descValue] of Object.entries(value)) {
+                if (typeof descValue === 'string') {
+                  content += `<h4>${descKey}</h4><p>${descValue}</p>`;
+                } else if (typeof descValue === 'object') {
+                  content += renderTable(descKey, descValue);
+                }
+              }
+              rightColumn += content;
+            } else {
+              content = renderTable(key, value);
+              if (key === 'meta') {
+                leftColumn += content;
+              } else {
+                rightColumn += content;
+              }
+            }
+          }
+        }
+      } else if (source === 'shopee') {
+        // Shopee 特定的信息处理
+        for (const [key, value] of Object.entries(infos)) {
+          if (key === 'Product Description') {
+            const paragraphs = value.split('\n').filter(p => p.trim());
+            const content = `<h4>${key}</h4><div>${paragraphs.map(p => `<p>${p}</p>`).join('')}</div>`;
+            rightColumn += content;
+          } else if (typeof value === 'object' && value !== null) {
+            let content = '';
+            if (key === 'Product Specifications') {
+              content = renderTable(key, value);
+              leftColumn += content;
+            } else {
+              // 处理其他可能的字段
+              if (typeof value === 'string') {
+                content = `<h4>${key}</h4><p>${value}</p>`;
+              } else {
+                content = renderTable(key, value);
+              }
+              rightColumn += content;
+            }
+          } else if (typeof value === 'string') {
+            // 直接处理字符串类型的值
+            rightColumn += `<h4>${key}</h4><p>${value}</p>`;
+          }
+        }
+      } else {
+        // 遍历并显示amazon的infos内容
+        for (const [key, value] of Object.entries(infos)) {
+          if (typeof value === 'object' && value !== null) {
+            let content = '';
+            if (key === 'product_infomation') {
+              // 展开product_infomation中的内容
+              for (const [infoKey, infoValue] of Object.entries(value)) {
+                content += renderTable(infoKey, infoValue);
+              }
+              rightColumn += content;
+            } else if (key === 'meta_info' || key === 'about_this_item') {
+              // 基本信息放在左栏
+              if (Array.isArray(value)) {
+                content = `<h4>${key}</h4>${renderList(value)}`;
+              } else {
+                content = renderTable(key, value);
+              }
+              leftColumn += content;
+            } else {
+              // 其他详细信息放在右栏
+              if (Array.isArray(value)) {
+                content = `<h4>${key}</h4>${renderList(value)}`;
+              } else if (typeof value === 'string') {
+                content = `<h4>${key}</h4><p>${value}</p>`;
+              } else {
+                content = renderTable(key, value);
+              }
+              rightColumn += content;
+            }
+          }
+        }
+      }
+
+      return {
+        leftColumn,
+        rightColumn
+      };
+    }
+  </script>
+</body>
+</html>

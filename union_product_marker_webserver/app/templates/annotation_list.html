@@ -1,0 +1,406 @@
+{% extends 'layout.html' %}
+{% block title %}数据标注列表{% endblock %}
+
+{# 分页宏 - 避免重复代码 #}
+{% macro render_pagination() %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="text-muted">
+      {% if pagination.per_page %}
+        显示第 {{ (pagination.page - 1) * pagination.per_page + 1 }} - {{ pagination.page * pagination.per_page if pagination.page * pagination.per_page < pagination.total_count else pagination.total_count }} 条，共 {{ pagination.total_count }} 条记录
+      {% else %}
+        显示全部 {{ pagination.total_count }} 条记录
+      {% endif %}
+    </div>
+    {% if pagination.total_pages > 1 %}
+      <nav aria-label="分页导航">
+        <ul class="pagination pagination-sm mb-0">
+          {# 上一页 #}
+          <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            {% if pagination.has_prev %}
+              <a class="page-link" href="{{ url_for('annotation.annotation_list', page=pagination.prev_page, per_page=pagination.per_page, status=pagination.status_filter, notes=pagination.notes_filter, search=pagination.search_keyword) }}">上一页</a>
+            {% else %}
+              <span class="page-link">上一页</span>
+            {% endif %}
+          </li>
+          
+          {# 页码 #}
+          {% set start_page = [1, pagination.page - 2] | max %}
+          {% set end_page = [pagination.total_pages, pagination.page + 2] | min %}
+          
+          {% if start_page > 1 %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('annotation.annotation_list', page=1, per_page=pagination.per_page, status=pagination.status_filter, notes=pagination.notes_filter, search=pagination.search_keyword) }}">1</a></li>
+            {% if start_page > 2 %}<li class="page-item disabled"><span class="page-link">...</span></li>{% endif %}
+          {% endif %}
+          
+          {% for p in range(start_page, end_page + 1) %}
+            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+              {% if p == pagination.page %}
+                <span class="page-link">{{ p }}</span>
+              {% else %}
+                <a class="page-link" href="{{ url_for('annotation.annotation_list', page=p, per_page=pagination.per_page, status=pagination.status_filter, notes=pagination.notes_filter, search=pagination.search_keyword) }}">{{ p }}</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+          
+          {% if end_page < pagination.total_pages %}
+            {% if end_page < pagination.total_pages - 1 %}<li class="page-item disabled"><span class="page-link">...</span></li>{% endif %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('annotation.annotation_list', page=pagination.total_pages, per_page=pagination.per_page, status=pagination.status_filter, notes=pagination.notes_filter, search=pagination.search_keyword) }}">{{ pagination.total_pages }}</a></li>
+          {% endif %}
+          
+          {# 下一页 #}
+          <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            {% if pagination.has_next %}
+              <a class="page-link" href="{{ url_for('annotation.annotation_list', page=pagination.next_page, per_page=pagination.per_page, status=pagination.status_filter, notes=pagination.notes_filter, search=pagination.search_keyword) }}">下一页</a>
+            {% else %}
+              <span class="page-link">下一页</span>
+            {% endif %}
+          </li>
+        </ul>
+      </nav>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{# 图片缩略图宏 #}
+{% macro render_image_thumbnails(item) %}
+  <div class="image-thumbnails">
+    {% set image_config = [
+      ['main', '主图'], ['front', '正面'], ['back', '背面'],
+      ['box', '整箱'], ['extra', '其他']
+    ] %}
+    {% for img_type, img_label in image_config %}
+      {% set local_path = item.image_local_paths.get(img_type, '') %}
+      <div class="image-thumbnail {% if local_path %}has-image{% else %}no-image{% endif %}" 
+           data-type="{{ img_type }}" data-local-path="{{ local_path }}">
+        {% if local_path %}
+          <img class="lazy-image" data-local-src="{{ local_path }}" data-use-local="true"
+               alt="{{ img_label }}" onclick="window.open(this.src, '_blank')" 
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <span class="image-alt-text" style="display:none;">{{ img_label }}</span>
+        {% else %}
+          <img class="lazy-image" alt="{{ img_label }}" style="display:none;">
+          <span class="image-alt-text">{{ img_label }}</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{# 备注宏 #}
+{% macro render_notes(item) %}
+  <div class="notes-section">
+    {% if item.notes %}
+      <div class="manual-notes" title="{{ item.notes }}">
+        <span class="notes-content">{{ item.notes }}</span>
+      </div>
+    {% endif %}
+    {% if item.auto_notes %}
+      <div class="auto-notes" title="{{ item.auto_notes }}">
+        <span class="notes-content">{{ item.auto_notes }}</span>
+      </div>
+    {% endif %}
+    {% if not item.notes and not item.auto_notes %}
+      <span class="text-muted">-</span>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>数据标注列表</h2>
+  <div class="d-flex align-items-center gap-3">
+    <button id="checkAllBtn" class="btn btn-warning" onclick="checkAllProducts()">
+      <i class="fas fa-search me-2"></i>批量检查
+    </button>
+    <div class="image-controls">
+      <label for="imageDisplayMode" class="form-label mb-0">图片显示:</label>
+      <!-- 图片模式选择器将在这里动态生成 -->
+    </div>
+  </div>
+</div>
+
+<div class="search-filter-section">
+  <div class="mb-3 d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center">
+      <input type="text" class="form-control me-2" id="searchInput" placeholder="输入 ID 或名称进行搜索..." value="{{ pagination.search_keyword or '' }}">
+      <select id="statusFilter" class="form-select me-2" style="width: 150px;">
+        <option value="all" {% if pagination.status_filter == 'all' %}selected{% endif %}>全部状态</option>
+        <option value="annotated" {% if pagination.status_filter == 'annotated' %}selected{% endif %}>已标注</option>
+        <option value="pending" {% if pagination.status_filter == 'pending' %}selected{% endif %}>未标注</option>
+      </select>
+      <select id="notesFilter" class="form-select me-2" style="width: 150px;">
+        <option value="all" {% if pagination.notes_filter == 'all' %}selected{% endif %}>全部备注</option>
+        <option value="has_notes" {% if pagination.notes_filter == 'has_notes' %}selected{% endif %}>有备注</option>
+        <option value="no_notes" {% if pagination.notes_filter == 'no_notes' %}selected{% endif %}>无备注</option>
+        <option value="has_manual_notes" {% if pagination.notes_filter == 'has_manual_notes' %}selected{% endif %}>有人工备注</option>
+        <option value="has_auto_notes" {% if pagination.notes_filter == 'has_auto_notes' %}selected{% endif %}>有自动备注</option>
+      </select>
+    </div>
+    <div class="d-flex align-items-center">
+      <label for="perPageSelect" class="form-label me-2 mb-0">每页显示:</label>
+      <select id="perPageSelect" class="form-select" style="width: 80px;">
+        <option value="10">10</option>
+        <option value="25">25</option>
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+        <option value="all">全部</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="pagination-container">
+  {{ render_pagination() }}
+</div>
+
+<div class="table-container">
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped table-hover product-table" id="productTable">
+      <thead>
+        <tr>
+          <th style="width: 40px;">
+            <div>ID</div>
+            <span class="field-tag">id</span>
+          </th>
+          <th style="width: 200px;">
+            <div>统一/基础名称</div>
+            <span class="field-tag">unified_name</span>
+            <span class="field-tag">name</span>
+          </th>
+          <th style="width: 100px;">
+            <div>品牌</div>
+            <span class="field-tag">brand</span>
+          </th>
+          <th style="width: 90px;">
+            <div>价格（上架）</div>
+            <span class="field-tag">price_listed</span>
+          </th>
+          <th style="width: 90px;">
+            <div>价格（成本）</div>
+            <span class="field-tag">price_cost</span>
+          </th>
+          <th style="width: 320px;">
+            <div>图片</div>
+            <span class="field-tag">images</span>
+          </th>
+          <th style="width: 120px;">
+            <div>人工/自动备注</div>
+            <span class="field-tag">notes</span>
+            <span class="field-tag">auto_notes</span>
+          </th>
+          <th style="width: 80px;">
+            <div>状态</div>
+            <span class="field-tag">status</span>
+          </th>
+          <th style="width: 100px;">
+            <div>操作</div>
+            <span class="field-tag">actions</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in products %}
+          <tr>
+            <td>{{ item.id }}</td>
+            <td>
+              {% if item.unified_name %}
+                <div class="unified-name">{{ item.unified_name }}</div>
+                {% if item.base_name %}<div class="base-name">{{ item.base_name }}</div>{% endif %}
+              {% else %}
+                <div class="base-name">{{ item.base_name }}</div>
+              {% endif %}
+            </td>
+            <td>{{ item.brand or '-' }}</td>
+            <td>{{ item.price_listed if item.price_listed is not none else '-' }}</td>
+            <td>{{ item.price_cost if item.price_cost is not none else '-' }}</td>
+            <td>{{ render_image_thumbnails(item) }}</td>
+            <td>{{ render_notes(item) }}</td>
+            <td>
+              {% if item.status == 'annotated' %}
+                <span class="badge bg-success">已标注</span>
+              {% elif item.status == 'pending' %}
+                <span class="badge bg-warning">待标注</span>
+              {% else %}
+                <span class="badge bg-secondary">未标注</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('annotation.annotation_detail', product_id=item.id) }}" 
+                 class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                <i class="fas fa-edit me-1"></i>
+                {% if item.status == 'annotated' %}重新标注{% else %}开始标注{% endif %}
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="text-center">无匹配商品</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_css %}
+<style>
+  /* 标注列表页面特定样式 */
+  
+  /* 搜索和筛选区域样式 */
+  .search-filter-section {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  
+  /* 表格容器样式 */
+  .table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+  
+  /* 响应式调整 */
+  @media (max-width: 768px) {
+    .search-filter-section {
+      padding: 0.75rem;
+    }
+    
+    .pagination-container {
+      padding: 0.75rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block page_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // 初始化图片组件系统
+  ImageComponents.init({
+    defaultMode: 'local',
+    lazyLoad: true,
+    placeholder: '/static/images/placeholder.svg'
+  });
+  
+  // 读取本地存储的图片显示模式
+  const savedMode = localStorage.getItem('imageDisplayMode') || 'local';
+  const imageControls = document.querySelector('.image-controls');
+  const modeSelector = ImageComponents.createImageModeSelector({
+    id: 'imageDisplayMode',
+    defaultMode: savedMode,
+    onModeChange: function(mode) {
+      localStorage.setItem('imageDisplayMode', mode);
+      ImageComponents.setImageDisplayMode(mode, '.image-thumbnail');
+      modeSelector.value = mode; // 保证selectbox同步
+    }
+  });
+  imageControls.appendChild(modeSelector);
+  modeSelector.value = savedMode; // 页面加载时同步selectbox
+  ImageComponents.setImageDisplayMode(savedMode, '.image-thumbnail');
+
+  // 工具函数
+  const utils = {
+    getUrlParam: (name, defaultValue) => new URLSearchParams(window.location.search).get(name) || defaultValue,
+    setUrlParam: (name, value) => {
+      const url = new URL(window.location);
+      url.searchParams.set(name, value);
+      if (name === 'per_page' || name === 'status' || name === 'notes' || name === 'search') url.searchParams.set('page', '1');
+      window.location.href = url.toString();
+    },
+    saveScrollPosition: () => sessionStorage.setItem('annotationListScrollPosition', window.scrollY.toString()),
+    restoreScrollPosition: () => {
+      const saved = sessionStorage.getItem('annotationListScrollPosition');
+      if (saved) {
+        setTimeout(() => { window.scrollTo(0, parseInt(saved)); sessionStorage.removeItem('annotationListScrollPosition'); }, 100);
+      }
+    }
+  };
+
+  // 初始化
+  utils.restoreScrollPosition();
+  document.getElementById('perPageSelect').value = utils.getUrlParam('per_page', '50');
+  document.getElementById('statusFilter').value = utils.getUrlParam('status', 'all');
+  document.getElementById('notesFilter').value = utils.getUrlParam('notes', 'all');
+
+  // 事件监听器
+  document.getElementById('perPageSelect').addEventListener('change', e => utils.setUrlParam('per_page', e.target.value));
+  document.getElementById('statusFilter').addEventListener('change', e => utils.setUrlParam('status', e.target.value));
+  document.getElementById('notesFilter').addEventListener('change', e => utils.setUrlParam('notes', e.target.value));
+
+  // 全局搜索功能（提交到服务器）
+  let searchTimeout;
+  document.getElementById("searchInput").addEventListener("input", function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      const keyword = this.value.trim();
+      utils.setUrlParam('search', keyword);
+    }, 500);
+  });
+  
+  // 滚动位置保存
+  window.addEventListener('beforeunload', utils.saveScrollPosition);
+  let scrollTimeout;
+  window.addEventListener('scroll', () => {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(utils.saveScrollPosition, 100);
+  });
+
+  // 修复图片懒加载：补全data-src并触发懒加载
+  document.querySelectorAll('.lazy-image').forEach(img => {
+    const localSrc = img.getAttribute('data-local-src');
+    if (localSrc && !img.getAttribute('data-src')) {
+      const baseUrl = ImageComponents && ImageComponents.init && ImageComponents['localImageBaseUrl']
+        ? ImageComponents['localImageBaseUrl']
+        : '/images/';
+      img.setAttribute('data-src', localSrc.startsWith('/') ? localSrc : baseUrl + localSrc);
+      img.src = '/static/images/placeholder.svg';
+    }
+  });
+  if (window.ImageComponents && ImageComponents.addLazyImages) {
+    ImageComponents.addLazyImages(document.querySelectorAll('.lazy-image'));
+  }
+});
+
+// 批量检查功能
+function checkAllProducts() {
+  const btn = document.getElementById('checkAllBtn');
+  const originalText = btn.innerHTML;
+  
+  // 显示加载状态
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>检查中...';
+  
+  fetch('/annotation/check-all', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const stats = data.stats;
+      alert(`批量检查完成！\n总产品数: ${stats.total}\n成功检查: ${stats.checked}\n检查出错: ${stats.errors}`);
+      // 刷新页面以显示最新的检查结果
+      location.reload();
+    } else {
+      alert('批量检查失败: ' + data.message);
+    }
+  })
+  .catch(error => {
+    console.error('批量检查出错:', error);
+    alert('批量检查出错: ' + error.message);
+  })
+  .finally(() => {
+    // 恢复按钮状态
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  });
+}
+</script>
+{% endblock %} 

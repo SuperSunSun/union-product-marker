@@ -1,0 +1,60 @@
+{
+    "input": [
+        {
+            "path": "input/input_fairprice_test.xlsx",
+            "enabled": false
+        },
+        {
+            "path": "input/input_fairprice_all.xlsx",
+            "enabled": true
+        },        
+        {
+            "path": "input/input_amazon_test.xlsx",
+            "enabled": false
+        },
+        {
+            "path": "input/input_amazon_all.xlsx",
+            "enabled": true
+        },
+        {
+            "path": "input/input_shopee_test.csv",
+            "enabled": false
+        },
+        {
+            "path": "input/input_shopee_all.csv",
+            "enabled": true
+        }             
+
+    ],
+    "output": {
+        "html_dir": "output/html",
+        "data_dir": "output",
+        "image_dir": "output"
+    },
+    "debug": {
+        "use_local_html": true,
+        "skip_image_download": true
+    },
+    "crawler": {
+        "enable_merge_json": true,
+        "enable_random_delay": false,
+        "max_sleep_seconds": 5
+    },
+    "sites": [
+        {
+            "name": "amazon",
+            "prefix": "a",
+            "base_url": "https://www.amazon.sg"
+        },
+        {
+            "name": "fairprice",
+            "prefix": "f",
+            "base_url": "https://www.fairprice.com.sg"
+        },
+        {
+            "name": "shopee",
+            "prefix": "s",
+            "base_url": "https://shopee.sg"
+        }
+    ]
+} 

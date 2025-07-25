@@ -1,0 +1,1340 @@
+{% extends 'layout.html' %}
+{% block title %}商品标注 - {{ product.name }}{% endblock %}
+
+{% block page_css %}
+<style>
+/* 重置全局样式影响 */
+.content-wrapper {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 页面主容器 */
+.annotation-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* 固定顶栏 */
+.annotation-header {
+  position: fixed;
+  top: 0;
+  left: 250px; /* 对应侧边栏宽度 */
+  right: 0;
+  height: 60px;
+  background: white;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 主工作区域 */
+.annotation-main {
+  display: flex;
+  height: 100vh;
+  margin-top: 0;
+  padding-top: 60px; /* 为固定顶栏留出空间 */
+}
+
+/* 左右两侧区域的基础样式 */
+.annotation-data-section,
+.annotation-form-section {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.annotation-data-section {
+  background: white;
+  min-height: 500px;
+}
+
+.annotation-form-section {
+  background: #f8f9fa;
+  border-left: 1px solid #ddd;
+  max-width: 600px;
+}
+
+/* 固定标题区域 - 统一样式 */
+.annotation-data-header,
+.annotation-form-header {
+  position: sticky;
+  top: 0;
+  height: 46px;
+  padding: 0 20px;
+  z-index: 100;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+}
+
+.annotation-data-header {
+  background: white;
+}
+
+.annotation-form-header {
+  background: #f8f9fa;
+}
+
+/* 标题行 - 统一样式 */
+.annotation-data-title-row,
+.annotation-form-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+/* 标题文字 - 统一样式 */
+.annotation-data-title,
+.annotation-form-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+/* 快速跳转按钮组 */
+.quick-jump-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quick-jump-btn {
+  padding: 3px 6px;
+  font-size: 0.75rem;
+  border: 1px solid #ddd;
+  background: white;
+  color: #666;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.quick-jump-btn:hover {
+  background: #f8f9fa;
+  border-color: #007bff;
+  color: #007bff;
+}
+
+.quick-jump-btn.active {
+  background: #007bff;
+  border-color: #007bff;
+  color: white;
+}
+
+/* 基本信息行 */
+.annotation-form-basic-info {
+  display: flex;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: #666;
+  align-items: center;
+}
+
+.basic-info-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.basic-info-label {
+  font-weight: 500;
+  color: #333;
+}
+
+/* 可滚动的内容区域 - 统一样式 */
+.annotation-data-content,
+.annotation-form-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px 20px 20px 20px;
+}
+
+/* 滚动条样式 - 统一 */
+.annotation-data-content::-webkit-scrollbar,
+.annotation-form-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.annotation-data-content::-webkit-scrollbar-track,
+.annotation-form-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.annotation-data-content::-webkit-scrollbar-thumb,
+.annotation-form-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.annotation-data-content::-webkit-scrollbar-thumb:hover,
+.annotation-form-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 修复左侧爬虫数据显示问题 */
+#crawlerPreviewContent {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* 备注textarea样式 */
+#notes {
+  resize: none;
+  min-height: 38px;
+}
+
+#notes:not(:placeholder-shown) {
+  background-color: #fff !important;
+}
+
+#auto_notes {
+  resize: none;
+  min-height: 38px;
+  background-color: #e9ecef !important;
+  color: #495057;
+  cursor: not-allowed;
+}
+
+#auto_notes:focus {
+  box-shadow: none;
+  border-color: #ced4da;
+}
+
+/* 确保ProductPreview插件正确显示 */
+.preview-layout {
+  display: flex;
+  height: 100%;
+  min-height: 400px;
+}
+
+.preview-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  border-right: 1px solid #ddd;
+}
+
+.preview-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .annotation-header {
+    left: 0;
+  }
+  
+  .annotation-main {
+    flex-direction: column;
+  }
+  
+  .annotation-data-section,
+  .annotation-form-section {
+    flex: none;
+    height: 50vh;
+  }
+  
+  .annotation-form-section {
+    border-left: none;
+    border-top: 1px solid #ddd;
+  }
+  
+  /* 移动端标题栏调整 */
+  .annotation-data-header,
+  .annotation-form-header {
+    height: 46px;
+    padding: 0 15px;
+  }
+  
+  .annotation-data-title-row,
+  .annotation-form-title-row {
+    margin-bottom: 0;
+  }
+  
+  .annotation-data-title,
+  .annotation-form-title {
+    font-size: 0.9rem;
+  }
+  
+  .quick-jump-btn {
+    padding: 2px 4px;
+    font-size: 0.7rem;
+  }
+  
+  .annotation-form-basic-info {
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.7rem;
+  }
+  
+  .basic-info-item {
+    gap: 2px;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="annotation-page">
+  
+  <!-- 固定顶栏 -->
+  <div class="annotation-header">
+    <h4 class="mb-0">商品标注 - {{ product.name }}</h4>
+    <div class="d-flex align-items-center">
+      <div class="image-controls me-3">
+        <label for="imageDisplayMode" class="form-label mb-0" style="font-size: 0.9em;">图片显示:</label>
+        <!-- 图片模式选择器将在这里动态生成 -->
+      </div>
+      <div class="form-check me-3">
+        <input class="form-check-input" type="checkbox" id="autoNext" onchange="toggleAutoNext()" {% if request.args.get('auto_next') == '1' %}checked{% endif %}>
+        <label class="form-check-label" for="autoNext" style="margin-bottom: 0; font-size: 0.9em;">
+          自动下一个
+        </label>
+      </div>
+      <div class="form-check me-3">
+        <input class="form-check-input" type="checkbox" id="autoCheckBeforeSave" checked>
+        <label class="form-check-label" for="autoCheckBeforeSave" style="margin-bottom: 0; font-size: 0.9em;">
+          保存前自动检查
+        </label>
+      </div>
+      <div class="form-check form-switch me-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="saveAndExit" checked>
+        <label class="form-check-label" for="saveAndExit">保存后返回列表</label>
+      </div>
+      <a href="{{ url_for('annotation.annotation_list') }}" class="btn btn-sm btn-outline-secondary me-2" onclick="returnToList()">
+        <i class="fas fa-arrow-left me-1"></i>返回列表
+      </a>
+      <button type="button" class="btn btn-sm btn-success" onclick="saveAnnotation()">
+        <i class="fas fa-save me-1"></i>保存标注
+      </button>
+    </div>
+  </div>
+
+  <!-- 主工作区域 -->
+  <div class="annotation-main">
+    
+    <!-- 左侧：爬虫数据 -->
+    <div class="annotation-data-section">
+      <div class="annotation-data-header">
+        <div class="annotation-data-title-row">
+          <h5 class="annotation-data-title">爬虫数据</h5>
+          <div class="quick-jump-buttons" id="quickJumpButtons">
+            <!-- 快速跳转按钮将在这里动态生成 -->
+          </div>
+        </div>
+      </div>
+      <div class="annotation-data-content">
+        <div id="crawlerPreviewContent">
+          <!-- JS将在这里渲染内容 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：标注表单 -->
+    <div class="annotation-form-section">
+      <div class="annotation-form-header">
+        <div class="annotation-form-title-row">
+          <h5 class="annotation-form-title">标注表单</h5>
+          <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-warning btn-sm" onclick="checkSingleProduct()">
+              <i class="fas fa-search me-1"></i>检查
+            </button>
+            <div class="annotation-form-basic-info">
+              <div class="basic-info-item">
+                <span class="basic-info-label">ID:</span>
+                <span>{{ product.id }}</span>
+              </div>
+              <div class="basic-info-item">
+                <span class="basic-info-label">基础名称:</span>
+                <span>{{ product.name }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="annotation-form-content">
+        <form id="annotationForm">
+          <!-- 标注核心信息 -->
+          <div class="row mb-3">
+            <div class="col-6">
+              <textarea class="form-control" id="notes" name="notes" rows="1" placeholder="备注" style="font-size: 0.875rem; background-color: #f8f9fa;">{{ notes }}</textarea>
+            </div>
+            <div class="col-6">
+              <textarea class="form-control" id="auto_notes" name="auto_notes" rows="1" placeholder="暂无问题" style="font-size: 0.875rem; background-color: #e9ecef;" readonly>{{ auto_notes or '暂无问题' }}</textarea>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="unified_name" class="form-label">统一商品名称</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="unified_name" name="unified_name" value="{{ saved_annotation.unified_name|default('', true) }}">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="unifiedNameDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-list"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" id="unifiedNameOptions" data-basename="{{ product.name|e }}" style="max-height: 300px; overflow-y: auto;">
+                <!-- 备选项将在这里动态生成 -->
+              </ul>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="brand" class="form-label">品牌</label>
+            <input type="text" class="form-control" id="brand" name="brand" value="{{ saved_annotation.brand|default('', true) }}">
+          </div>
+
+          <!-- 价格信息 -->
+          <div class="row mb-3">
+            <div class="col">
+              <label for="price_listed" class="form-label">价格（上架）</label>
+              <input type="number" step="0.01" class="form-control" id="price_listed" name="price_listed" value="{{ saved_annotation.price_listed|default('', true) }}">
+            </div>
+            <div class="col">
+              <label for="price_cost" class="form-label">价格（成本）</label>
+              <input type="number" step="0.01" class="form-control" id="price_cost" name="price_cost" value="{{ saved_annotation.price_cost|default('', true) }}">
+            </div>
+          </div>
+          <hr>
+
+          <!-- 图片选择 -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0">图片分配</h6>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openImageAssignmentModal()">
+                  <i class="fas fa-images me-1"></i>分配图片
+              </button>
+          </div>
+          
+          <div class="image-section">
+              <div class="image-form-row">
+                  <div id="mainImageContainer" class="image-container">
+                      {% if saved_annotation.images.main or saved_annotation.image_local_paths.main %}
+                          <img src="{% if saved_annotation.image_local_paths.main %}/images/{{ saved_annotation.image_local_paths.main }}{% else %}{{ saved_annotation.images.main }}{% endif %}" alt="主图" 
+                               data-remote-src="{{ saved_annotation.images.main }}" 
+                               data-local-src="{{ saved_annotation.image_local_paths.main }}"
+                               onload="this.parentNode.querySelector('.image-dimensions').textContent = this.naturalWidth + '×' + this.naturalHeight"
+                               onerror="this.parentNode.querySelector('.image-dimensions').textContent = '加载失败'">
+                          <div class="image-dimensions">加载中...</div>
+                      {% else %}
+                          <div class="placeholder-text">待分配<br>主图</div>
+                      {% endif %}
+                  </div>
+                  <div class="image-url-details">
+                      <div>原始地址: <span id="main_original_url" class="url-display">{% if saved_annotation.images.main %}<a href="{{ saved_annotation.images.main }}" target="_blank">{{ saved_annotation.images.main }}</a>{% else %}未选择{% endif %}</span></div>
+                      <div>本地地址: <span id="main_local_url" class="url-display">{% if saved_annotation.image_local_paths.main %}<a href="/images/{{ saved_annotation.image_local_paths.main }}" target="_blank">{{ saved_annotation.image_local_paths.main }}</a>{% else %}未选择{% endif %}</span></div>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeImage('main')">移除</button>
+              </div>
+              {% for type, label in [('front', '正面图'), ('back', '背面图'), ('box', '整箱图'), ('extra', '其他图')] %}
+              <div class="image-form-row">
+                  <div id="{{ type }}ImageContainer" class="image-container">
+                      {% if saved_annotation.images[type] or saved_annotation.image_local_paths[type] %}
+                          <img src="{% if saved_annotation.image_local_paths[type] %}/images/{{ saved_annotation.image_local_paths[type] }}{% else %}{{ saved_annotation.images[type] }}{% endif %}" alt="{{ label }}" 
+                               data-remote-src="{{ saved_annotation.images[type] }}" 
+                               data-local-src="{{ saved_annotation.image_local_paths[type] }}"
+                               onload="this.parentNode.querySelector('.image-dimensions').textContent = this.naturalWidth + '×' + this.naturalHeight"
+                               onerror="this.parentNode.querySelector('.image-dimensions').textContent = '加载失败'">
+                          <div class="image-dimensions">加载中...</div>
+                      {% else %}
+                          <div class="placeholder-text">待分配<br>{{ label }}</div>
+                      {% endif %}
+                  </div>
+                  <div class="image-url-details">
+                      <div>原始地址: <span id="{{ type }}_original_url" class="url-display">{% if saved_annotation.images[type] %}<a href="{{ saved_annotation.images[type] }}" target="_blank">{{ saved_annotation.images[type] }}</a>{% else %}未选择{% endif %}</span></div>
+                      <div>本地地址: <span id="{{ type }}_local_url" class="url-display">{% if saved_annotation.image_local_paths[type] %}<a href="/images/{{ saved_annotation.image_local_paths[type] }}" target="_blank">{{ saved_annotation.image_local_paths[type] }}</a>{% else %}未选择{% endif %}</span></div>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeImage('{{ type }}')">移除</button>
+              </div>
+              {% endfor %}
+          </div>
+
+          <!-- 隐藏字段 -->
+          <input type="hidden" id="main_image_url" name="main_image_url" value="{{ saved_annotation.images.main|default('', true) }}">
+          <input type="hidden" id="main_image_local_url" name="main_image_local_url" value="{{ saved_annotation.image_local_paths.main|default('', true) }}">
+          <input type="hidden" id="front_image_url" name="front_image_url" value="{{ saved_annotation.images.front|default('', true) }}">
+          <input type="hidden" id="front_image_local_url" name="front_image_local_url" value="{{ saved_annotation.image_local_paths.front|default('', true) }}">
+          <input type="hidden" id="back_image_url" name="back_image_url" value="{{ saved_annotation.images.back|default('', true) }}">
+          <input type="hidden" id="back_image_local_url" name="back_image_local_url" value="{{ saved_annotation.image_local_paths.back|default('', true) }}">
+          <input type="hidden" id="box_image_url" name="box_image_url" value="{{ saved_annotation.images.box|default('', true) }}">
+          <input type="hidden" id="box_image_local_url" name="box_image_local_url" value="{{ saved_annotation.image_local_paths.box|default('', true) }}">
+          <input type="hidden" id="extra_image_url" name="extra_image_url" value="{{ saved_annotation.images.extra|default('', true) }}">
+          <input type="hidden" id="extra_image_local_url" name="extra_image_local_url" value="{{ saved_annotation.image_local_paths.extra|default('', true) }}">
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 图片选择器模态框 -->
+<div class="modal fade image-picker-modal" id="imagePickerModal" tabindex="-1" aria-labelledby="imagePickerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imagePickerModalLabel">分配图片</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="imagePickerGrid" class="image-grid">
+          <!-- 图片将在这里动态加载 -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" onclick="confirmAssignments()">确认分配</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Data for JS -->
+<div id="annotation-data" 
+     data-crawler-data='{{ crawler_data|tojson|e }}'
+     style="display: none;">
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script src="{{ url_for('static', filename='js/product_preview.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const dataElement = document.getElementById('annotation-data');
+    let crawlerData;
+    try {
+        // The |e filter in Jinja2 escapes characters. We need to decode them for JS.
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = dataElement.getAttribute('data-crawler-data');
+        crawlerData = JSON.parse(tempDiv.textContent);
+        console.log('Crawler data loaded:', crawlerData);
+    } catch(e) {
+        console.error("Failed to parse crawler data:", e);
+        crawlerData = {}; // Fallback to empty object
+    }
+    
+    // 初始化图片组件系统
+    ImageComponents.init({
+        defaultMode: 'local',
+        lazyLoad: true,
+        placeholder: '/static/images/placeholder.svg'
+    });
+    
+    // 创建图片模式选择器（只保留本地图片和原始图片）
+    const imageControls = document.querySelector('.image-controls');
+    const modeSelector = ImageComponents.createImageModeSelector({
+        id: 'imageDisplayMode',
+        defaultMode: 'local',
+        modes: [
+            { value: 'local', label: '本地图片' },
+            { value: 'remote', label: '原始图片' }
+        ],
+        onModeChange: function(mode) {
+            // 更新ProductPreview插件的图片
+            if (window.ProductPreview && window.ProductPreview.toggleAllImages) {
+                const useLocal = mode === 'local';
+                window.ProductPreview.toggleAllImages(useLocal);
+            }
+            // 更新表单区域的图片
+            updateFormImages(mode);
+            // 如果弹层打开，更新弹层中的图片
+            if (imagePickerModal && document.getElementById('imagePickerModal').classList.contains('show')) {
+                updateImagePickerImages(mode);
+            }
+        }
+    });
+    imageControls.appendChild(modeSelector);
+    
+    // 初始化自动下一个状态
+    initializeAutoNextState();
+    
+    // 初始化产品预览，并指定渲染容器
+    if (crawlerData && Object.keys(crawlerData).length > 0 && crawlerData.products && Object.keys(crawlerData.products).length > 0) {
+        console.log('Initializing ProductPreview with data:', crawlerData);
+        ProductPreview.init({
+            data: crawlerData,
+            container: '.annotation-data-section', // 指定容器
+            content: '#crawlerPreviewContent', // 使用crawlerPreviewContent作为内容容器
+            useAbsoluteImages: true, // 默认使用本地图片
+            renderNav: false
+        });
+        
+        // 生成快速跳转按钮
+        generateQuickJumpButtons(crawlerData);
+    } else {
+        console.log('No crawler data available, showing fallback message');
+        document.getElementById('crawlerPreviewContent').innerHTML = '<p class="text-center text-muted"><i class="fas fa-info-circle me-2"></i>暂无爬虫数据 (或数据为空)。</p>';
+    }
+    
+    // 无论是否有爬虫数据，都生成统一名称备选项
+    generateUnifiedNameOptions(crawlerData);
+    
+    // 绑定点击事件委托
+    bindActionEvents();
+
+    // 页面初始化后补全所有.lazy-image的data-src并触发懒加载
+    document.querySelectorAll('.lazy-image').forEach(img => {
+      const localSrc = img.getAttribute('data-local-src');
+      if (localSrc && !img.getAttribute('data-src')) {
+        const baseUrl = ImageComponents && ImageComponents['localImageBaseUrl']
+          ? ImageComponents['localImageBaseUrl']
+          : '/images/';
+        img.setAttribute('data-src', localSrc.startsWith('/') ? localSrc : baseUrl + localSrc);
+        img.src = '/static/images/placeholder.svg';
+      }
+      // 修复尺寸信息：懒加载完成后主动更新.image-dimensions
+      const dimDiv = img.parentNode && img.parentNode.querySelector('.image-dimensions');
+      if (dimDiv) {
+        img.addEventListener('load', function() {
+          if (img.naturalWidth && img.naturalHeight) {
+            dimDiv.textContent = img.naturalWidth + '×' + img.naturalHeight;
+          }
+        });
+        img.addEventListener('error', function() {
+          dimDiv.textContent = '加载失败';
+        });
+      }
+    });
+    if (window.ImageComponents && ImageComponents.addLazyImages) {
+      ImageComponents.addLazyImages(document.querySelectorAll('.lazy-image'));
+    }
+});
+
+// 初始化自动下一个状态
+function initializeAutoNextState() {
+    const autoNextCheckbox = document.getElementById('autoNext');
+    const saveAndExitCheckbox = document.getElementById('saveAndExit');
+    
+    if (autoNextCheckbox && saveAndExitCheckbox) {
+        if (autoNextCheckbox.checked) {
+            // 如果自动下一个被选中，禁用保存后返回列表
+            saveAndExitCheckbox.checked = false;
+            saveAndExitCheckbox.disabled = true;
+        } else {
+            // 如果自动下一个未选中，启用保存后返回列表
+            saveAndExitCheckbox.disabled = false;
+        }
+    }
+}
+
+function bindActionEvents() {
+    const previewContent = document.getElementById('crawlerPreviewContent');
+    if (!previewContent) return;
+
+    previewContent.addEventListener('click', function(e) {
+        // 处理可点击复制的元素
+        const copyableTarget = e.target.closest('[data-target-field]');
+        if (copyableTarget) {
+            const textToCopy = copyableTarget.innerText || copyableTarget.textContent;
+            const targetFieldId = copyableTarget.dataset.targetField;
+            const targetField = document.getElementById(targetFieldId);
+            if (targetField) {
+                targetField.value = textToCopy.trim();
+                AppUtils.showMessage(`已复制 "${textToCopy.trim()}" 到 ${targetFieldId}`, 'success');
+            }
+        }
+    });
+}
+
+// 更新表单区域的图片
+function updateFormImages(mode) {
+    const imageTypes = ['main', 'front', 'back', 'box', 'extra'];
+    imageTypes.forEach(type => {
+        const container = document.getElementById(`${type}ImageContainer`);
+        if (container) {
+            const img = container.querySelector('img');
+            const dimDiv = container.querySelector('.image-dimensions');
+            const remoteUrlInput = document.getElementById(`${type}_image_url`);
+            const localUrlInput = document.getElementById(`${type}_image_local_url`);
+            const remoteUrl = remoteUrlInput ? remoteUrlInput.value : '';
+            const localUrl = localUrlInput ? localUrlInput.value : '';
+            // 使用ImageComponents的显示模式切换
+            ImageComponents.setImageDisplayMode(mode, container);
+            // 切换到不显示时，显示加载中或未分配，保证容器不塌陷
+            if (mode === 'hidden') {
+                if (dimDiv) {
+                    if (img && (img.getAttribute('data-local-src') || img.getAttribute('data-remote-src'))) {
+                        dimDiv.textContent = '加载中...';
+                    } else {
+                        dimDiv.textContent = '未分配';
+                    }
+                    dimDiv.style.display = 'flex';
+                    dimDiv.style.alignItems = 'center';
+                    dimDiv.style.justifyContent = 'center';
+                    dimDiv.style.height = '100%';
+                }
+            } else {
+                if (dimDiv) {
+                    dimDiv.style.display = '';
+                    dimDiv.style.height = '';
+                }
+            }
+        }
+    });
+}
+
+// 更新弹层中的图片
+function updateImagePickerImages(mode) {
+    const images = document.querySelectorAll('#imagePickerModal img[data-local-src]');
+    images.forEach(img => {
+        const localSrc = img.getAttribute('data-local-src');
+        const remoteSrc = img.getAttribute('data-remote-src');
+        
+        if (mode === 'local' && localSrc && localSrc !== '') {
+            // 切换到本地图片
+            if (img.src !== localSrc) {
+                img.src = localSrc;
+                img.setAttribute('data-display-mode', 'local');
+            }
+        } else if (mode === 'remote' && remoteSrc && remoteSrc !== '') {
+            // 切换到远程图片
+            if (img.src !== remoteSrc) {
+                img.src = remoteSrc;
+                img.setAttribute('data-display-mode', 'remote');
+            }
+        } else if (mode === 'hidden') {
+            img.style.display = 'none';
+        } else {
+            img.style.display = '';
+        }
+    });
+}
+
+// 图片选择器相关变量
+let imageAssignments = {};
+let allImages = [];
+let imagePickerModal = null;
+const IMAGE_TYPES = ['main', 'front', 'back', 'box', 'extra'];
+const IMAGE_LABELS = {'main': '主图', 'front': '正面', 'back': '背面', 'box': '整箱', 'extra': '其他'};
+
+// 打开图片分配模态框
+function openImageAssignmentModal() {
+    // 1. 从表单的隐藏字段中初始化当前的图片分配状态
+    imageAssignments = {};
+    IMAGE_TYPES.forEach(type => {
+        const remoteUrl = document.getElementById(`${type}_image_url`).value;
+        const localUrl = document.getElementById(`${type}_image_local_url`).value;
+        if (remoteUrl || localUrl) {
+            imageAssignments[type] = { remoteUrl: remoteUrl || '', localUrl: localUrl || '' };
+        } else {
+            imageAssignments[type] = null;
+        }
+    });
+    window.imageAssignments = imageAssignments;
+    
+    // 2. 收集所有可用的爬虫图片
+    if (allImages.length === 0) {
+        collectAllImages();
+    }
+    
+    // 3. 渲染并显示模态框
+    if (!imagePickerModal) {
+        const modalElement = document.getElementById('imagePickerModal');
+        imagePickerModal = new bootstrap.Modal(modalElement);
+    }
+    
+    // 使用ImageComponents渲染图片网格
+    const grid = document.getElementById('imagePickerGrid');
+    const currentMode = document.getElementById('imageDisplayMode').value;
+    
+    ImageComponents.renderImagePickerGrid(grid, allImages, {
+        mode: currentMode,
+        onImageSelect: assignImageToType,
+        imageTypes: IMAGE_TYPES,
+        imageLabels: IMAGE_LABELS
+    });
+    
+    imagePickerModal.show();
+    // 补全模态框内图片的懒加载
+    setTimeout(() => {
+      document.querySelectorAll('#imagePickerModal .lazy-image').forEach(img => {
+        const localSrc = img.getAttribute('data-local-src');
+        if (localSrc && !img.getAttribute('data-src')) {
+          const baseUrl = ImageComponents && ImageComponents['localImageBaseUrl']
+            ? ImageComponents['localImageBaseUrl']
+            : '/images/';
+          img.setAttribute('data-src', localSrc.startsWith('/') ? localSrc : baseUrl + localSrc);
+          img.src = '/static/images/placeholder.svg';
+        }
+      });
+      if (window.ImageComponents && ImageComponents.addLazyImages) {
+        ImageComponents.addLazyImages(document.querySelectorAll('#imagePickerModal .lazy-image'));
+      }
+    }, 100);
+}
+
+// 收集所有爬虫图片
+function collectAllImages() {
+    const dataElement = document.getElementById('annotation-data');
+    let crawlerData;
+    try {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = dataElement.getAttribute('data-crawler-data');
+        crawlerData = JSON.parse(tempDiv.textContent);
+    } catch(e) {
+        console.error("Failed to parse crawler data:", e);
+        crawlerData = {};
+    }
+    
+    allImages = [];
+    
+    if (crawlerData && crawlerData.products) {
+        Object.keys(crawlerData.products).forEach(sourceName => {
+            const products = crawlerData.products[sourceName];
+            products.forEach(product => {
+                // 处理远程图片数组
+                const remoteImages = product.image_urls_simplified || product.image_urls_original || product.images || [];
+                // 处理本地图片数组
+                const localImages = product.local_images || [];
+                
+                // 建立远程URL和本地路径的对应关系
+                remoteImages.forEach((remoteUrl, index) => {
+                    if (remoteUrl) {
+                        const localPath = localImages[index] || null;
+                        const localUrl = localPath ? `/images/${localPath}` : null;
+                        
+                        allImages.push({
+                            url: remoteUrl,
+                            localUrl: localUrl,
+                            source: sourceName,
+                            productId: product.id || product.product_id,
+                            index: index
+                        });
+                    }
+                });
+                
+                // 如果本地图片数量多于远程图片，也要处理剩余的本地图片
+                if (localImages.length > remoteImages.length) {
+                    for (let i = remoteImages.length; i < localImages.length; i++) {
+                        const localPath = localImages[i];
+                        if (localPath) {
+                            allImages.push({
+                                url: '', // 没有对应的远程URL
+                                localUrl: `/images/${localPath}`,
+                                source: sourceName,
+                                productId: product.id || product.product_id,
+                                index: i
+                            });
+                        }
+                    }
+                }
+            });
+        });
+    }
+}
+
+// 分配图片到指定类型
+function assignImageToType(buttonElement, remoteUrl, localUrl, imageType) {
+    const isDeselecting = buttonElement.classList.contains('active');
+
+    // Deactivate any other button assigned to this type
+    document.querySelectorAll(`.image-assign-tag[data-type="${imageType}"]`).forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    if (isDeselecting) {
+        // If we clicked the same button again, just leave it deselected
+        imageAssignments[imageType] = null;
+    } else {
+        // 只保存原始相对路径（去掉/images/前缀）
+        buttonElement.classList.add('active');
+        let rawLocalPath = localUrl;
+        if (rawLocalPath && rawLocalPath.startsWith('/images/')) {
+            rawLocalPath = rawLocalPath.replace(/^\/images\//, '');
+        }
+        imageAssignments[imageType] = { remoteUrl: remoteUrl, localUrl: rawLocalPath };
+    }
+}
+
+// 确认分配
+function confirmAssignments() {
+    IMAGE_TYPES.forEach(type => {
+        const assignment = imageAssignments[type];
+        const remoteUrl = assignment ? assignment.remoteUrl : '';
+        const localUrl = assignment ? assignment.localUrl : '';
+
+        // 更新隐藏字段
+        document.getElementById(`${type}_image_url`).value = remoteUrl;
+        document.getElementById(`${type}_image_local_url`).value = localUrl;
+
+        // 更新表单中的图片显示
+        const container = document.getElementById(`${type}ImageContainer`);
+        if (container) {
+            const currentMode = document.getElementById('imageDisplayMode').value;
+            
+            if (remoteUrl || localUrl) {
+                let img = container.querySelector('img');
+                let dimDiv = container.querySelector('.image-dimensions');
+
+                if (!img) {
+                    container.innerHTML = '';
+                    img = document.createElement('img');
+                    img.alt = IMAGE_LABELS[type];
+                    dimDiv = document.createElement('div');
+                    dimDiv.className = 'image-dimensions';
+                    dimDiv.textContent = '加载中...';
+                    container.appendChild(img);
+                    container.appendChild(dimDiv);
+                }
+                
+                img.onload = function() { if(dimDiv) dimDiv.textContent = `${this.naturalWidth}×${this.naturalHeight}`; };
+                img.onerror = function() { if(dimDiv) dimDiv.textContent = '加载失败'; };
+                img.setAttribute('data-remote-src', remoteUrl);
+                img.setAttribute('data-local-src', localUrl ? '/images/' + localUrl : '');
+                img.setAttribute('data-display-mode', currentMode);
+                
+                // 根据当前模式设置图片源
+                let displayUrl = '';
+                if (currentMode === 'local' && localUrl) {
+                    displayUrl = '/images/' + localUrl;
+                } else if (currentMode === 'remote' && remoteUrl) {
+                    displayUrl = remoteUrl;
+                } else if (currentMode === 'local' && remoteUrl) {
+                    displayUrl = remoteUrl;
+                }
+                
+                if (displayUrl) {
+                    img.src = displayUrl;
+                    if(dimDiv) dimDiv.textContent = '加载中...';
+                }
+            } else {
+                container.innerHTML = `<div class="placeholder-text">待分配<br>${IMAGE_LABELS[type]}</div>`;
+            }
+        }
+        // 更新URL显示
+        updateUrlDisplay(type, remoteUrl, localUrl || '');
+    });
+    imagePickerModal.hide();
+    AppUtils.showMessage('图片分配已更新', 'success');
+}
+
+// 移除图片
+function removeImage(imageType) {
+    const container = document.getElementById(`${imageType}ImageContainer`);
+    if (container) {
+        container.innerHTML = `<div class="placeholder-text">待分配<br>${IMAGE_LABELS[imageType]}</div>`;
+    }
+    
+    document.getElementById(`${imageType}_image_url`).value = '';
+    document.getElementById(`${imageType}_image_local_url`).value = '';
+    
+    // 清空URL显示
+    updateUrlDisplay(imageType, '', '');
+    
+    AppUtils.showMessage(`已移除 ${IMAGE_LABELS[imageType]}`, 'info');
+}
+
+// 更新URL显示
+function updateUrlDisplay(imageType, remoteUrl, localUrl) {
+    const originalUrlElement = document.getElementById(`${imageType}_original_url`);
+    const localUrlElement = document.getElementById(`${imageType}_local_url`);
+    
+    if (originalUrlElement) {
+        if (remoteUrl) {
+            originalUrlElement.innerHTML = `<a href="${remoteUrl}" target="_blank">${remoteUrl}</a>`;
+        } else {
+            originalUrlElement.textContent = '未选择';
+        }
+    }
+    
+    if (localUrlElement) {
+        if (localUrl) {
+            // 显示相对路径，但链接使用完整路径
+            const displayPath = localUrl;
+            const fullUrl = localUrl.startsWith('/') ? localUrl : '/images/' + localUrl;
+            localUrlElement.innerHTML = `<a href="${fullUrl}" target="_blank">${displayPath}</a>`;
+        } else {
+            localUrlElement.textContent = '未选择';
+        }
+    }
+}
+
+function saveAnnotation() {
+    const form = document.getElementById('annotationForm');
+    const formData = new FormData(form);
+    const autoCheckBeforeSave = document.getElementById('autoCheckBeforeSave').checked;
+    
+    const data = {
+        unified_name: formData.get('unified_name'),
+        brand: formData.get('brand'),
+        price_listed: parseFloat(formData.get('price_listed')) || null,
+        price_cost: parseFloat(formData.get('price_cost')) || null,
+        notes: formData.get('notes'),
+        auto_check_before_save: autoCheckBeforeSave,
+        images: {
+            main: formData.get('main_image_url'),
+            front: formData.get('front_image_url'),
+            back: formData.get('back_image_url'),
+            box: formData.get('box_image_url'),
+            extra: formData.get('extra_image_url'),
+        },
+        image_local_paths: {
+            main: formData.get('main_image_local_url'),
+            front: formData.get('front_image_local_url'),
+            back: formData.get('back_image_local_url'),
+            box: formData.get('box_image_local_url'),
+            extra: formData.get('extra_image_local_url'),
+        }
+    };
+
+    const saveBtn = document.querySelector('button[onclick="saveAnnotation()"]');
+    const originalText = saveBtn.innerHTML;
+    
+    AppUtils.showLoading(saveBtn, '保存中...');
+
+    fetch("{{ url_for('annotation.save_annotation', product_id=product.id) }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            // 如果执行了自动检查，更新自动备注字段
+            if (result.auto_notes !== undefined) {
+                const autoNotesField = document.getElementById('auto_notes');
+                if (autoNotesField) {
+                    autoNotesField.value = result.auto_notes;
+                    // 如果结果不是"暂无问题"，显示警告样式
+                    if (result.auto_notes && result.auto_notes !== '暂无问题') {
+                        autoNotesField.style.backgroundColor = '#fff3cd';
+                        autoNotesField.style.borderColor = '#ffc107';
+                    } else {
+                        autoNotesField.style.backgroundColor = '#e9ecef';
+                        autoNotesField.style.borderColor = '#ced4da';
+                    }
+                }
+            }
+            
+            AppUtils.showMessage('标注已保存！', 'success');
+            
+            // 检查自动下一个功能
+            const autoNext = document.getElementById('autoNext').checked;
+            const saveAndExit = document.getElementById('saveAndExit').checked;
+            
+            if (autoNext) {
+                // 自动下一个功能
+                if (result.next_product_id) {
+                    // 有下一个产品，跳转到下一个
+                    setTimeout(() => {
+                        window.location.href = "{{ url_for('annotation.annotation_detail', product_id='') }}" + result.next_product_id + "?auto_next=1";
+                    }, 1500);
+                } else {
+                    // 没有下一个产品，返回列表
+                    setTimeout(() => {
+                        window.location.href = "{{ url_for('annotation.annotation_list') }}";
+                    }, 1500);
+                }
+            } else if (saveAndExit) {
+                // 保存后返回列表
+                setTimeout(() => {
+                    window.location.href = "{{ url_for('annotation.annotation_list') }}";
+                }, 1500);
+            }
+        } else {
+            AppUtils.showMessage('保存失败: ' + (result.message || '未知错误'), 'danger');
+        }
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+        AppUtils.showMessage('保存时发生网络或服务器错误。', 'danger');
+    })
+    .finally(() => {
+        AppUtils.hideLoading(saveBtn, originalText);
+    });
+}
+
+// 生成快速跳转按钮
+function generateQuickJumpButtons(crawlerData) {
+    const buttonsContainer = document.getElementById('quickJumpButtons');
+    if (!buttonsContainer || !crawlerData.products) return;
+    
+    const sources = Object.keys(crawlerData.products).sort();
+    let buttonsHtml = '';
+    
+    // 添加"全部"按钮
+    buttonsHtml += '<button class="quick-jump-btn active" onclick="scrollToSource(\'all\')">全部</button>';
+    
+    // 为每个数据源生成按钮
+    sources.forEach(source => {
+        const productCount = crawlerData.products[source].length;
+        buttonsHtml += `<button class="quick-jump-btn" onclick="scrollToSource('${source}')" title="${source}: ${productCount}个商品">
+            ${source} (${productCount})
+        </button>`;
+    });
+    
+    buttonsContainer.innerHTML = buttonsHtml;
+}
+
+// 滚动到指定数据源
+function scrollToSource(source) {
+    const contentContainer = document.querySelector('.annotation-data-content');
+    if (!contentContainer) return;
+    
+    // 更新按钮状态
+    document.querySelectorAll('.quick-jump-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    if (source === 'all') {
+        // 滚动到顶部
+        contentContainer.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+        return;
+    }
+    
+    // 查找对应数据源的标题元素
+    const sourceHeaders = document.querySelectorAll('.source-section-header');
+    let targetHeader = null;
+    
+    for (const header of sourceHeaders) {
+        const badge = header.querySelector('.badge');
+        if (badge && badge.textContent.trim() === source) {
+            targetHeader = header;
+            break;
+        }
+    }
+    
+    if (targetHeader) {
+        targetHeader.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    } else {
+        // 如果找不到标题，尝试查找产品元素
+        const productElement = document.querySelector(`[id^="product-${source}-"]`);
+        if (productElement) {
+            productElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    }
+}
+
+// 自动下一个功能
+function toggleAutoNext() {
+    const autoNextCheckbox = document.getElementById('autoNext');
+    const saveAndExitCheckbox = document.getElementById('saveAndExit');
+    
+    if (autoNextCheckbox.checked) {
+        // 如果选中自动下一个，禁用保存后返回列表
+        saveAndExitCheckbox.checked = false;
+        saveAndExitCheckbox.disabled = true;
+    } else {
+        // 如果取消自动下一个，启用保存后返回列表
+        saveAndExitCheckbox.disabled = false;
+    }
+}
+
+// 生成统一名称备选项
+function generateUnifiedNameOptions(crawlerData) {
+    const optionsContainer = document.getElementById('unifiedNameOptions');
+    if (!optionsContainer) return;
+
+    // 清空现有选项（保留data-basename属性）
+    while (optionsContainer.firstChild) {
+        optionsContainer.removeChild(optionsContainer.firstChild);
+    }
+    const header = document.createElement('li');
+    header.innerHTML = '<h6 class="dropdown-header">备选名称</h6>';
+    optionsContainer.appendChild(header);
+    const divider = document.createElement('li');
+    divider.innerHTML = '<hr class="dropdown-divider">';
+    optionsContainer.appendChild(divider);
+
+    // 用data属性获取基础名称
+    const baseName = optionsContainer.getAttribute('data-basename');
+    if (baseName && baseName.trim()) {
+        const baseNameItem = document.createElement('li');
+        baseNameItem.innerHTML = `<a class="dropdown-item unified-name-option" href="#" data-value="${encodeURIComponent(baseName)}">
+            <strong>基础名称:</strong> ${baseName}
+        </a>`;
+        optionsContainer.appendChild(baseNameItem);
+    }
+    // 收集所有爬虫中的名称
+    const crawlerNames = new Set();
+    const crawlerNameSources = new Map();
+    if (crawlerData && crawlerData.products) {
+        Object.keys(crawlerData.products).forEach(sourceName => {
+            const products = crawlerData.products[sourceName];
+            products.forEach(product => {
+                const nameFields = [
+                    product.name,
+                    product.title,
+                    product.product_name,
+                    product.product_title,
+                    product.item_name,
+                    product.item_title
+                ];
+                nameFields.forEach(name => {
+                    if (name && name.trim() && name.trim() !== baseName) {
+                        const trimmedName = name.trim();
+                        crawlerNames.add(trimmedName);
+                        if (crawlerNameSources.has(trimmedName)) {
+                            const existingSources = crawlerNameSources.get(trimmedName);
+                            if (!existingSources.includes(sourceName)) {
+                                crawlerNameSources.set(trimmedName, existingSources + ', ' + sourceName);
+                            }
+                        } else {
+                            crawlerNameSources.set(trimmedName, sourceName);
+                        }
+                    }
+                });
+            });
+        });
+    }
+    if (crawlerNames.size > 0) {
+        const sortedNames = Array.from(crawlerNames).sort((a, b) => a.length - b.length);
+        sortedNames.forEach(name => {
+            const sources = crawlerNameSources.get(name);
+            const nameItem = document.createElement('li');
+            nameItem.innerHTML = `<a class="dropdown-item unified-name-option" href="#" data-value="${encodeURIComponent(name)}">
+                <strong>${sources}:</strong><br>${name}
+            </a>`;
+            optionsContainer.appendChild(nameItem);
+        });
+    }
+    const hasBaseName = baseName && baseName.trim();
+    const hasCrawlerNames = crawlerNames.size > 0;
+    if (!hasBaseName && !hasCrawlerNames) {
+        const noOptionsItem = document.createElement('li');
+        noOptionsItem.innerHTML = '<span class="dropdown-item-text text-muted">暂无备选名称</span>';
+        optionsContainer.appendChild(noOptionsItem);
+    }
+    // 事件委托：只绑定一次
+    if (!optionsContainer._delegateBinded) {
+        optionsContainer.addEventListener('click', function(e) {
+            const target = e.target.closest('.unified-name-option');
+            if (target) {
+                e.preventDefault();
+                const value = decodeURIComponent(target.getAttribute('data-value'));
+                selectUnifiedName(value);
+            }
+        });
+        optionsContainer._delegateBinded = true;
+    }
+}
+
+// 选择统一名称
+function selectUnifiedName(name) {
+    document.getElementById('unified_name').value = name;
+    // 关闭下拉菜单
+    const dropdown = bootstrap.Dropdown.getInstance(document.getElementById('unifiedNameDropdown'));
+    if (dropdown) {
+        dropdown.hide();
+    }
+}
+
+// 返回列表并保存滚动位置
+function returnToList() {
+    // 不覆盖已保存的滚动位置，让列表页面自己恢复
+    return true;
+}
+
+// 单个产品检查功能
+function checkSingleProduct() {
+    const productId = '{{ product.id }}';
+    const checkBtn = event.target.closest('button');
+    const originalText = checkBtn.innerHTML;
+    
+    // 获取表单数据
+    const form = document.getElementById('annotationForm');
+    const formData = new FormData(form);
+    
+    const data = {
+        unified_name: formData.get('unified_name'),
+        brand: formData.get('brand'),
+        price_listed: parseFloat(formData.get('price_listed')) || null,
+        price_cost: parseFloat(formData.get('price_cost')) || null,
+        images: {
+            main: formData.get('main_image_url'),
+            front: formData.get('front_image_url'),
+            back: formData.get('back_image_url'),
+            box: formData.get('box_image_url'),
+            extra: formData.get('extra_image_url'),
+        },
+        image_local_paths: {
+            main: formData.get('main_image_local_url'),
+            front: formData.get('front_image_local_url'),
+            back: formData.get('back_image_local_url'),
+            box: formData.get('box_image_local_url'),
+            extra: formData.get('extra_image_local_url'),
+        }
+    };
+    
+    // 显示加载状态
+    checkBtn.disabled = true;
+    checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>检查中...';
+    
+    fetch(`/annotation/check/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 更新自动备注字段
+            const autoNotesField = document.getElementById('auto_notes');
+            if (autoNotesField) {
+                autoNotesField.value = data.result;
+                // 如果结果不是"暂无问题"，显示警告样式
+                if (data.result !== '暂无问题') {
+                    autoNotesField.style.backgroundColor = '#fff3cd';
+                    autoNotesField.style.borderColor = '#ffc107';
+                } else {
+                    autoNotesField.style.backgroundColor = '#e9ecef';
+                    autoNotesField.style.borderColor = '#ced4da';
+                }
+            }
+            
+            // 使用系统通知显示结果
+            if (data.result === '暂无问题') {
+                AppUtils.showMessage('检查完成，没有发现问题！', 'success');
+            } else {
+                AppUtils.showMessage('检查完成！发现的问题：' + data.result, 'warning');
+            }
+        } else {
+            AppUtils.showMessage('检查失败: ' + data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('检查出错:', error);
+        AppUtils.showMessage('检查出错: ' + error.message, 'danger');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        checkBtn.disabled = false;
+        checkBtn.innerHTML = originalText;
+    });
+}
+</script>
+{% endblock %} 

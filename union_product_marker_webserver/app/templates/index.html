@@ -1,0 +1,90 @@
+{% extends 'layout.html' %}
+{% block title %}商品列表{% endblock %}
+{% block content %}
+<h2>商品列表</h2>
+
+<div class="mb-3">
+  <input type="text" class="form-control" id="searchInput" placeholder="输入 ID 或名称进行搜索...">
+</div>
+
+<table class="table table-bordered table-striped table-hover" id="productTable">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>ID</th>
+      <th>名称</th>
+      <th>状态</th>
+      <th>更新时间</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in products %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ item.id }}</td>
+        <td>{{ item.name }}</td>
+        <td>{{ item.status or '未定义' }}</td>
+        <td>{{ item.updated_at or '' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-center">无匹配商品</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+{% block page_css %}
+<style>
+  #productTable tbody tr:hover {
+    cursor: pointer;
+  }
+</style>
+{% endblock %}
+
+{% block page_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const table = $('#productTable').DataTable({
+    order: [[1, 'asc']],
+    paging: false,
+    searching: false
+  });
+
+  const input = document.getElementById("searchInput");
+  input.addEventListener("input", function () {
+    const keyword = input.value.trim().toLowerCase();
+    $('#productTable tbody tr').each(function () {
+      const idCell = $(this).find('td:eq(1)');
+      const nameCell = $(this).find('td:eq(2)');
+      const idText = idCell.text().toLowerCase();
+      const nameText = nameCell.text().toLowerCase();
+
+      idCell.html(idCell.text());
+      nameCell.html(nameCell.text());
+
+      if (!keyword) {
+        $(this).show();
+        return;
+      }
+
+      const matched = idText.includes(keyword) || nameText.includes(keyword);
+      $(this).toggle(matched);
+
+      if (matched) {
+        const pattern = new RegExp("(" + keyword.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + ")", "gi");
+        idCell.html(idCell.text().replace(pattern, "<mark>$1</mark>"));
+        nameCell.html(nameCell.text().replace(pattern, "<mark>$1</mark>"));
+      }
+    });
+  });
+
+  // ✅ 行点击事件 → 跳转预留
+  $('#productTable tbody').on('click', 'tr', function () {
+    const id = $(this).find('td:eq(1)').text().trim();
+    if (id) {
+      AppUtils.showMessage('TODO: 跳转至商品详情页 ID: ' + id, 'info');
+    }
+  });
+});
+</script>
+{% endblock %}
