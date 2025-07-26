@@ -42,7 +42,7 @@ def serve_image(filename):
     try:
         # 构建图片目录路径
         # 图片存储在union_scraper/output目录下
-        image_dir = os.path.join(BASE_DIR, "..", "union_scraper", "output")
+        image_dir = os.path.join(BASE_DIR, "..", "union_scraper_core", "output")
         file_path = os.path.join(image_dir, filename)
         
         # 检查文件是否存在
