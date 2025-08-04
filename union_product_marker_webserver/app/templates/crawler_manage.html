@@ -168,10 +168,11 @@ function renderStatistics(stats) {
 
 function getSourceColor(sourceName) {
   const s = (sourceName || '').toLowerCase();
-  if (s.includes('amazon')) return 'bg-warning text-dark';
-  if (s.includes('shopee')) return 'bg-danger text-white';
-  if (s.includes('fairprice')) return 'bg-primary text-white';
-  return 'bg-secondary text-white';
+  if (s.includes('amazon')) return 'amazon';
+  if (s.includes('shopee')) return 'shopee';
+  if (s.includes('fairprice')) return 'fairprice';
+  if (s.includes('lazada')) return 'lazada';
+  return 'other';
 }
 
 // 数据浏览功能

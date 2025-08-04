@@ -133,6 +133,23 @@ def init_db():
         )
     """)
 
+    # 创建产品URL管理表
+    # 存储每个产品的URL信息，支持多种URL类型和来源
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS product_urls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,   -- 自增主键
+            product_id TEXT NOT NULL,               -- 产品ID（外键）
+            url TEXT NOT NULL,                      -- URL地址
+            url_tag TEXT,                           -- URL标签（single/package/subpack/other），可选  
+            source_name TEXT NOT NULL,              -- 来源（lazada/shopee/amazon/fairprice/other）
+            status TEXT DEFAULT 'active',           -- 状态（active/inactive）
+            collected_at TEXT DEFAULT CURRENT_TIMESTAMP,  -- 收集时间
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,    -- 创建时间
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,    -- 更新时间
+            FOREIGN KEY (product_id) REFERENCES products(id)
+        )
+    """)
+
     # 检查是否需要添加 annotation_data 字段
     # 这是一个向后兼容的检查，确保旧版本的数据库也能正常工作
     cursor.execute("PRAGMA table_info(products)")

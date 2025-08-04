@@ -58,6 +58,7 @@ def create_app(config_name=None):
     from app.views.annotation_views import annotation_bp    # 产品标注路由
     from app.views.batch_annotation_views import batch_annotation_bp  # 批量标注路由
     from app.views.export_views import export_bp            # 导出数据路由
+    from app.views.url_manage_views import url_manage_bp    # URL管理路由
     
     app.register_blueprint(index_bp)
     app.register_blueprint(import_basic_bp)
@@ -67,6 +68,7 @@ def create_app(config_name=None):
     app.register_blueprint(annotation_bp)
     app.register_blueprint(batch_annotation_bp)
     app.register_blueprint(export_bp)
+    app.register_blueprint(url_manage_bp)
     
     # 初始化数据库
     # 确保数据库表结构存在，如果不存在则创建

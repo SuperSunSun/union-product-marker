@@ -1,0 +1,1056 @@
+{% extends 'layout.html' %}
+{% block title %}URL管理{% endblock %}
+
+{% block page_css %}
+<style>
+.url-manage-container {
+    padding: 20px;
+}
+
+.search-container {
+    max-width: 500px;
+}
+
+.url-mgmt-product-list {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.url-mgmt-product-item {
+    border-bottom: 1px solid #eee;
+}
+
+.url-mgmt-product-item:last-child {
+    border-bottom: none;
+}
+
+.url-mgmt-product-header {
+    background: #f8f9fa;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s;
+    padding:5px
+}
+
+.url-mgmt-product-header:hover {
+    background: #e9ecef;
+}
+
+.url-mgmt-product-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.url-mgmt-product-id {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.url-mgmt-product-name {
+    font-size: 0.9rem;
+    color: #666;
+    margin-left: 10px;
+}
+
+.url-mgmt-product-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.url-mgmt-url-count {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.url-mgmt-expand-icon {
+    transition: transform 0.3s;
+}
+
+.url-mgmt-expanded .url-mgmt-expand-icon {
+    transform: rotate(90deg);
+}
+
+.url-mgmt-url-details {
+    display: none;
+    padding: 0;
+    background: #fdfdfd;
+}
+
+.url-mgmt-url-list {
+    padding: 0;
+    margin: 0;
+}
+
+.url-mgmt-url-header {
+    padding: 8px 20px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    font-weight: 500;
+}
+
+.url-mgmt-url-header .url-mgmt-url-content {
+    align-items: center;
+}
+
+.url-mgmt-url-item {
+    padding: 8px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    min-height: 40px;
+}
+
+.url-mgmt-url-item:last-child {
+    border-bottom: none;
+}
+
+.url-mgmt-url-content {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 80px 100px 80px 2fr 120px;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.url-mgmt-url-actions {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-top: 2px;
+}
+
+/* 编辑状态样式 */
+.url-mgmt-url-item.editing {
+    background-color: #f8f9fa;
+    border-left: 3px solid #007bff;
+}
+
+.url-mgmt-url-item.editing .form-select,
+.url-mgmt-url-item.editing .form-control {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    height: auto;
+    min-height: 28px;
+    border: 1px solid #ced4da;
+}
+
+.url-mgmt-url-item.editing .form-select:focus,
+.url-mgmt-url-item.editing .form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.url-mgmt-url-item.editing .edit-url {
+    width: 100%;
+    resize: vertical;
+    min-height: 50px;
+    line-height: 1.3;
+}
+
+.url-mgmt-url-item.editing .edit-type-select,
+.url-mgmt-url-item.editing .edit-custom-type {
+    width: 100%;
+}
+
+.custom-type-input,
+.edit-custom-type {
+    margin-top: 3px;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+}
+
+.url-mgmt-add-form {
+    padding: 12px 20px;
+    background: #f8f9fa;
+    border-top: 1px solid #ddd;
+    display: none;
+}
+
+.url-mgmt-add-form.show {
+    display: block;
+}
+
+.url-mgmt-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.url-mgmt-form-group {
+    margin-bottom: 8px;
+}
+
+.url-mgmt-form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 3px;
+    color: #333;
+}
+
+.url-mgmt-form-control {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    min-height: 32px;
+}
+
+.url-mgmt-form-control[name="url"] {
+    resize: vertical;
+    min-height: 50px;
+    line-height: 1.3;
+}
+
+.url-mgmt-form-control:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.url-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.url-tag.single {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.url-tag.package {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.url-tag.subpack {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.url-tag.other {
+    background: #e8f5e8;
+    color: #388e3c;
+}
+
+/* 来源标签样式已移至全局CSS（style.css）以提高可维护性 */
+
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.status-indicator.active {
+    background: #28a745;
+}
+
+.status-indicator.inactive {
+    background: #dc3545;
+}
+
+.url-link {
+    color: #007bff;
+    text-decoration: none;
+    word-wrap: break-word;
+    word-break: break-all;
+    line-height: 1.3;
+    display: block;
+}
+
+.url-link:hover {
+    text-decoration: underline;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .url-mgmt-url-content {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .url-mgmt-url-content > div {
+        margin-bottom: 5px;
+    }
+    
+    .url-mgmt-form-row {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="url-manage-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-link me-2"></i>URL管理</h2>
+        <button class="btn btn-primary" onclick="refreshData()">
+            <i class="fas fa-sync-alt me-1"></i>刷新数据
+        </button>
+    </div>
+
+    <!-- 搜索栏 -->
+    <div class="search-container mb-4">
+        <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" class="form-control" id="searchInput" placeholder="搜索产品ID或名称..." 
+                   onkeyup="filterProducts()">
+            <button class="btn btn-outline-secondary" onclick="clearSearch()">
+                <i class="fas fa-times"></i> 清除
+            </button>
+        </div>
+    </div>
+
+    <!-- 产品列表 -->
+    <div class="url-mgmt-product-list">
+        {% if products %}
+            {% for product in products %}
+            <div class="url-mgmt-product-item" data-product-id="{{ product.id }}">
+                <!-- 产品头部 -->
+                <div class="url-mgmt-product-header" onclick="toggleProduct('{{ product.id }}')">
+                    <div class="url-mgmt-product-info">
+                        <i class="fas fa-chevron-right url-mgmt-expand-icon"></i>
+                        <span class="url-mgmt-product-id">{{ product.id }}</span>
+                        {% if product.name %}
+                            <span class="url-mgmt-product-name">{{ product.name }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="url-mgmt-product-actions">
+                        <span class="url-mgmt-url-count">{{ product.url_count }} URLs</span>
+                        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); showAddUrlForm('{{ product.id }}')">
+                            <i class="fas fa-plus"></i> 添加
+                        </button>
+                    </div>
+                </div>
+
+                <!-- URL详情区域 -->
+                <div class="url-mgmt-url-details" id="urls-{{ product.id }}">
+                    <div class="loading">正在加载URL数据...</div>
+                </div>
+
+                <!-- 添加URL表单 -->
+                <div class="url-mgmt-add-form" id="add-form-{{ product.id }}">
+                    <h5><i class="fas fa-plus me-2"></i>为 {{ product.id }} 添加URL</h5>
+                    <form onsubmit="addUrl(event, '{{ product.id }}')">
+                        <div class="url-mgmt-form-row">
+                            <div class="url-mgmt-form-group">
+                                <label>URL地址 *</label>
+                                <textarea class="url-mgmt-form-control" name="url" rows="2" required 
+                                          placeholder="输入或粘贴URL地址" onpaste="handleAddFormUrlPaste(event, '{{ product.id }}')" 
+                                          oninput="handleAddFormUrlInput(event, '{{ product.id }}')"></textarea>
+                            </div>
+                            <div class="url-mgmt-form-group">
+                                <label>URL类型</label>
+                                <select class="url-mgmt-form-control type-select" name="url_tag" 
+                                        onchange="handleTypeSelectChange(this, '{{ product.id }}')">
+                                    <option value="">请选择类型</option>
+                                    {% for key, value in url_tags.items() %}
+                                    <option value="{{ value }}">{{ value }}</option>
+                                    {% endfor %}
+                                    <option value="__custom__">自定义...</option>
+                                </select>
+                                <input type="text" class="url-mgmt-form-control custom-type-input" 
+                                       name="custom_url_tag" placeholder="输入自定义类型" 
+                                       style="display: none; margin-top: 5px;">
+                            </div>
+                            <div class="url-mgmt-form-group">
+                                <label>来源 *</label>
+                                <select class="url-mgmt-form-control" name="source_name" required>
+                                    <option value="other" selected>其他</option>
+                                    {% for key, value in source_options.items() %}
+                                        {% if key != 'other' %}
+                                        <option value="{{ key }}">{{ value }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="url-mgmt-form-group">
+                                <label>状态</label>
+                                <select class="url-mgmt-form-control" name="status">
+                                    <option value="active">启用</option>
+                                    <option value="inactive">禁用</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="fas fa-save me-1"></i>保存URL
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" 
+                                    onclick="hideAddUrlForm('{{ product.id }}')">
+                                <i class="fas fa-times me-1"></i>取消
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
+                <h4>暂无产品数据</h4>
+                <p>请先导入产品基础数据</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// 全局变量
+let expandedProducts = new Set();
+
+// HTML转义工具函数
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// HTML属性值转义
+function escapeAttr(text) {
+    if (!text) return '';
+    return text.toString().replace(/"/g, '&quot;');
+}
+
+// 切换产品展开/收起
+function toggleProduct(productId) {
+    const urlDetails = document.getElementById(`urls-${productId}`);
+    const expandIcon = document.querySelector(`[data-product-id="${productId}"] .url-mgmt-expand-icon`);
+    const productHeader = document.querySelector(`[data-product-id="${productId}"] .url-mgmt-product-header`);
+    
+    if (expandedProducts.has(productId)) {
+        // 收起
+        urlDetails.style.display = 'none';
+        expandIcon.style.transform = 'rotate(0deg)';
+        productHeader.classList.remove('url-mgmt-expanded');
+        expandedProducts.delete(productId);
+    } else {
+        // 展开
+        urlDetails.style.display = 'block';
+        expandIcon.style.transform = 'rotate(90deg)';
+        productHeader.classList.add('url-mgmt-expanded');
+        expandedProducts.add(productId);
+        
+        // 加载URL数据
+        loadProductUrls(productId);
+    }
+}
+
+// 加载产品URL数据
+function loadProductUrls(productId) {
+    const urlContainer = document.getElementById(`urls-${productId}`);
+    
+    fetch(`/url-manage/api/product/${productId}/urls`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderUrlList(productId, data.data);
+            } else {
+                urlContainer.innerHTML = `<div class="empty-state">加载失败: ${data.message}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('加载URL失败:', error);
+            urlContainer.innerHTML = '<div class="empty-state">加载URL数据时发生错误</div>';
+        });
+}
+
+// 渲染URL列表
+function renderUrlList(productId, urls) {
+    const urlContainer = document.getElementById(`urls-${productId}`);
+    
+    if (urls.length === 0) {
+        urlContainer.innerHTML = '<div class="empty-state">该产品暂无URL数据</div>';
+        return;
+    }
+    
+    let html = '<div class="url-mgmt-url-list">';
+    
+    // 添加表头
+    html += `
+        <div class="url-mgmt-url-header">
+            <div class="url-mgmt-url-content">
+                <div><small class="text-muted"><strong>状态</strong></small></div>
+                <div><small class="text-muted"><strong>来源</strong></small></div>
+                <div><small class="text-muted"><strong>类型</strong></small></div>
+                <div><small class="text-muted"><strong>URL</strong></small></div>
+                <div><small class="text-muted"><strong>时间</strong></small></div>
+            </div>
+            <div class="url-mgmt-url-actions">
+                <small class="text-muted"><strong>操作</strong></small>
+            </div>
+        </div>
+    `;
+    
+    urls.forEach(url => {
+        html += `
+            <div class="url-mgmt-url-item" data-url-id="${url.id}">
+                <div class="url-mgmt-url-content">
+                    <div>
+                        <span class="status-indicator ${url.status}"></span>
+                        ${escapeHtml(url.status_display)}
+                    </div>
+                    <div>
+                        <span class="badge ${getSourceBadgeClass(url.source_name)}">${escapeHtml(url.source_display)}</span>
+                    </div>
+                    <div>
+                        <span class="url-tag ${url.url_tag}">${escapeHtml(url.url_tag_display)}</span>
+                    </div>
+                    <div style="word-wrap: break-word; word-break: break-all;">
+                        <a href="${escapeAttr(url.url)}" target="_blank" class="url-link" title="${escapeAttr(url.url)}">
+                            ${escapeHtml(url.url)}
+                        </a>
+                    </div>
+                    <div class="text-muted small">
+                        ${formatDate(url.collected_at)}
+                    </div>
+                </div>
+                <div class="url-mgmt-url-actions">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editUrl(${url.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm ${url.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'}" 
+                            onclick="toggleUrlStatus(${url.id}, '${url.status === 'active' ? 'inactive' : 'active'}')">
+                        <i class="fas fa-${url.status === 'active' ? 'pause' : 'play'}"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUrl(${url.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    urlContainer.innerHTML = html;
+}
+
+// 显示添加URL表单
+function showAddUrlForm(productId) {
+    const form = document.getElementById(`add-form-${productId}`);
+    form.classList.add('show');
+}
+
+// 隐藏添加URL表单
+function hideAddUrlForm(productId) {
+    const form = document.getElementById(`add-form-${productId}`);
+    form.classList.remove('show');
+    form.querySelector('form').reset();
+}
+
+// 添加URL
+function addUrl(event, productId) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // 获取类型值：如果选择了自定义，使用自定义输入框的值
+    const typeSelect = form.querySelector('.type-select');
+    const customTypeInput = form.querySelector('.custom-type-input');
+    let urlTag = null;
+    
+    if (typeSelect.value === '__custom__' && customTypeInput.value.trim()) {
+        urlTag = customTypeInput.value.trim();
+    } else if (typeSelect.value && typeSelect.value !== '__custom__') {
+        urlTag = typeSelect.value.trim();
+    }
+    
+    const data = {
+        product_id: productId,
+        url: formData.get('url').trim(),
+        url_tag: urlTag,
+        source_name: formData.get('source_name'),
+        status: formData.get('status')
+    };
+    
+    fetch('/url-manage/api/url/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            AppUtils.showMessage(data.message, 'success');
+            hideAddUrlForm(productId);
+            
+            // 如果产品已展开，重新加载URL列表
+            if (expandedProducts.has(productId)) {
+                loadProductUrls(productId);
+            }
+            
+            // 更新URL计数
+            updateUrlCount(productId);
+        } else {
+            AppUtils.showMessage(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('添加URL失败:', error);
+        AppUtils.showMessage('添加URL时发生错误', 'danger');
+    });
+}
+
+// 切换URL状态
+function toggleUrlStatus(urlId, newStatus) {
+    fetch(`/url-manage/api/url/${urlId}/toggle-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            AppUtils.showMessage(data.message, 'success');
+            
+            // 重新加载相关产品的URL列表
+            const urlItem = document.querySelector(`[data-url-id="${urlId}"]`);
+            const productId = urlItem.closest('[data-product-id]').dataset.productId;
+            loadProductUrls(productId);
+            
+            // 更新URL计数
+            updateUrlCount(productId);
+        } else {
+            AppUtils.showMessage(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('切换URL状态失败:', error);
+        AppUtils.showMessage('切换URL状态时发生错误', 'danger');
+    });
+}
+
+// 删除URL
+function deleteUrl(urlId) {
+    if (!confirm('确定要删除这个URL吗？此操作不可撤销。')) {
+        return;
+    }
+    
+    fetch(`/url-manage/api/url/${urlId}/delete`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            AppUtils.showMessage(data.message, 'success');
+            
+            // 重新加载相关产品的URL列表
+            const urlItem = document.querySelector(`[data-url-id="${urlId}"]`);
+            const productId = urlItem.closest('[data-product-id]').dataset.productId;
+            loadProductUrls(productId);
+            
+            // 更新URL计数
+            updateUrlCount(productId);
+        } else {
+            AppUtils.showMessage(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('删除URL失败:', error);
+        AppUtils.showMessage('删除URL时发生错误', 'danger');
+    });
+}
+
+// 编辑URL (inline编辑)
+function editUrl(urlId) {
+    const urlItem = document.querySelector(`[data-url-id="${urlId}"]`);
+    const urlContent = urlItem.querySelector('.url-mgmt-url-content');
+    
+    // 如果已经是编辑状态，则取消编辑
+    if (urlItem.classList.contains('editing')) {
+        cancelEditUrl(urlId);
+        return;
+    }
+    
+    // 获取当前URL数据
+    const statusElement = urlContent.children[0];
+    const sourceElement = urlContent.children[1];
+    const typeElement = urlContent.children[2];
+    const urlElement = urlContent.children[3];
+    
+    const currentStatus = statusElement.textContent.trim();
+    const currentSource = sourceElement.querySelector('.badge').textContent.trim();
+    const currentType = typeElement.querySelector('.url-tag').textContent.trim();
+    const currentUrl = urlElement.querySelector('.url-link').href;
+    
+    // 保存原始内容
+    urlItem._originalContent = urlContent.innerHTML;
+    
+    // 创建编辑界面
+    urlContent.innerHTML = `
+        <div>
+            <select class="form-select form-select-sm edit-status">
+                <option value="active" ${currentStatus === '启用' ? 'selected' : ''}>启用</option>
+                <option value="inactive" ${currentStatus === '禁用' ? 'selected' : ''}>禁用</option>
+            </select>
+        </div>
+        <div>
+            <select class="form-select form-select-sm edit-source">
+                <option value="other" ${currentSource === '其他' || !currentSource ? 'selected' : ''}>其他</option>
+                <option value="amazon" ${currentSource === 'Amazon' ? 'selected' : ''}>Amazon</option>
+                <option value="fairprice" ${currentSource === 'FairPrice' ? 'selected' : ''}>FairPrice</option>
+                <option value="shopee" ${currentSource === 'Shopee' ? 'selected' : ''}>Shopee</option>
+                <option value="lazada" ${currentSource === 'Lazada' ? 'selected' : ''}>Lazada</option>
+            </select>
+        </div>
+        <div>
+            <select class="form-select form-select-sm edit-type-select" 
+                    onchange="handleEditTypeSelectChange(this, ${urlId})">
+                <option value="">请选择类型</option>
+                <option value="单品" ${currentType === '单品' ? 'selected' : ''}>单品</option>
+                <option value="整箱" ${currentType === '整箱' ? 'selected' : ''}>整箱</option>
+                <option value="子箱" ${currentType === '子箱' ? 'selected' : ''}>子箱</option>
+                <option value="其他" ${currentType === '其他' ? 'selected' : ''}>其他</option>
+                <option value="__custom__" ${currentType && !['单品', '整箱', '子箱', '其他', ''].includes(currentType) ? 'selected' : ''}>自定义...</option>
+            </select>
+            <input type="text" class="form-control form-control-sm edit-custom-type" 
+                   placeholder="输入自定义类型" value="${currentType && !['单品', '整箱', '子箱', '其他', ''].includes(currentType) ? escapeAttr(currentType) : ''}"
+                   style="display: ${currentType && !['单品', '整箱', '子箱', '其他', ''].includes(currentType) ? 'block' : 'none'}; margin-top: 3px;">
+        </div>
+        <div>
+            <textarea class="form-control form-control-sm edit-url" rows="2" 
+                      placeholder="输入或粘贴URL地址" required onpaste="handleUrlPaste(event)" 
+                      oninput="handleUrlInput(event)">${escapeHtml(currentUrl)}</textarea>
+        </div>
+        <div class="text-muted small">编辑中...</div>
+    `;
+    
+    // 更新操作按钮
+    const actionsElement = urlItem.querySelector('.url-mgmt-url-actions');
+    actionsElement.innerHTML = `
+        <button class="btn btn-sm btn-success" onclick="saveUrlEdit(${urlId})">
+            <i class="fas fa-save"></i>
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="cancelEditUrl(${urlId})">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    // 标记为编辑状态
+    urlItem.classList.add('editing');
+}
+
+// 保存URL编辑
+function saveUrlEdit(urlId) {
+    const urlItem = document.querySelector(`[data-url-id="${urlId}"]`);
+    const urlContent = urlItem.querySelector('.url-mgmt-url-content');
+    
+    // 获取编辑的值
+    const newStatus = urlContent.querySelector('.edit-status').value;
+    const newSource = urlContent.querySelector('.edit-source').value;
+    
+    // 获取类型值：如果选择了自定义，使用自定义输入框的值
+    const typeSelect = urlContent.querySelector('.edit-type-select');
+    const customTypeInput = urlContent.querySelector('.edit-custom-type');
+    let newType = null;
+    
+    if (typeSelect.value === '__custom__' && customTypeInput.value.trim()) {
+        newType = customTypeInput.value.trim();
+    } else if (typeSelect.value && typeSelect.value !== '__custom__') {
+        newType = typeSelect.value.trim();
+    }
+    
+    const newUrl = urlContent.querySelector('.edit-url').value.trim();
+    
+    // 验证URL
+    if (!newUrl || !newUrl.trim()) {
+        AppUtils.showMessage('URL不能为空', 'danger');
+        return;
+    }
+    
+    // 准备更新数据，类型为空时设为null
+    const updateData = {
+        url: newUrl,
+        url_tag: newType || null,
+        source_name: newSource,
+        status: newStatus
+    };
+    
+    // 发送更新请求
+    fetch(`/url-manage/api/url/${urlId}/update`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            AppUtils.showMessage(data.message, 'success');
+            
+            // 重新加载相关产品的URL列表
+            const productId = urlItem.closest('[data-product-id]').dataset.productId;
+            loadProductUrls(productId);
+            
+            // 更新URL计数
+            updateUrlCount(productId);
+        } else {
+            AppUtils.showMessage(data.message, 'danger');
+            // 恢复原始内容
+            cancelEditUrl(urlId);
+        }
+    })
+    .catch(error => {
+        console.error('更新URL失败:', error);
+        AppUtils.showMessage('更新URL时发生错误', 'danger');
+        // 恢复原始内容
+        cancelEditUrl(urlId);
+    });
+}
+
+// 取消URL编辑
+function cancelEditUrl(urlId) {
+    const urlItem = document.querySelector(`[data-url-id="${urlId}"]`);
+    const urlContent = urlItem.querySelector('.url-mgmt-url-content');
+    
+    // 恢复原始内容
+    if (urlItem._originalContent) {
+        urlContent.innerHTML = urlItem._originalContent;
+        delete urlItem._originalContent;
+    }
+    
+    // 恢复操作按钮
+    const productId = urlItem.closest('[data-product-id]').dataset.productId;
+    loadProductUrls(productId);
+    
+    // 移除编辑状态
+    urlItem.classList.remove('editing');
+}
+
+// 更新产品URL计数
+function updateUrlCount(productId) {
+    fetch(`/url-manage/api/product/${productId}/urls`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const urlCount = data.data.length;
+                const countElement = document.querySelector(`[data-product-id="${productId}"] .url-mgmt-url-count`);
+                if (countElement) {
+                    countElement.textContent = `${urlCount} URLs`;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('更新URL计数失败:', error);
+        });
+}
+
+// 刷新整个页面数据
+function refreshData() {
+    location.reload();
+}
+
+// 格式化日期
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-CN');
+}
+
+// 获取来源标签的样式类 - 使用自定义CSS类提高可维护性
+function getSourceBadgeClass(sourceName) {
+    const badgeClasses = {
+        'amazon': 'amazon',
+        'fairprice': 'fairprice',
+        'shopee': 'shopee',
+        'lazada': 'lazada',
+        'other': 'other'
+    };
+    return badgeClasses[sourceName] || 'unknown';
+}
+
+// 根据URL自动检测来源
+function detectSourceFromUrl(url) {
+    if (!url) return 'other';
+    
+    const domain = url.toLowerCase();
+    
+    if (domain.includes('amazon')) {
+        return 'amazon';
+    } else if (domain.includes('fairprice')) {
+        return 'fairprice';
+    } else if (domain.includes('shopee')) {
+        return 'shopee';
+    } else if (domain.includes('lazada')) {
+        return 'lazada';
+    } else {
+        return 'other';
+    }
+}
+
+// 处理URL粘贴事件
+function handleUrlPaste(event) {
+    setTimeout(() => {
+        const textarea = event.target;
+        const url = textarea.value.trim();
+        const detectedSource = detectSourceFromUrl(url);
+        
+        // 查找同一编辑行中的来源选择框
+        const urlItem = textarea.closest('.url-mgmt-url-item');
+        const sourceSelect = urlItem.querySelector('.edit-source');
+        
+        if (sourceSelect && detectedSource !== 'other') {
+            sourceSelect.value = detectedSource;
+        }
+    }, 10);
+}
+
+// 处理URL输入事件
+function handleUrlInput(event) {
+    const textarea = event.target;
+    const url = textarea.value.trim();
+    
+    // 只在输入较长内容时自动检测（避免输入过程中频繁切换）
+    if (url.length > 10) {
+        const detectedSource = detectSourceFromUrl(url);
+        
+        // 查找同一编辑行中的来源选择框
+        const urlItem = textarea.closest('.url-mgmt-url-item');
+        const sourceSelect = urlItem.querySelector('.edit-source');
+        
+        if (sourceSelect && detectedSource !== 'other') {
+            sourceSelect.value = detectedSource;
+        }
+    }
+}
+
+// 处理添加表单中的URL粘贴事件
+function handleAddFormUrlPaste(event, productId) {
+    setTimeout(() => {
+        const textarea = event.target;
+        const url = textarea.value.trim();
+        const detectedSource = detectSourceFromUrl(url);
+        
+        // 查找同一表单中的来源选择框
+        const form = textarea.closest('form');
+        const sourceSelect = form.querySelector('select[name="source_name"]');
+        
+        if (sourceSelect && detectedSource !== 'other') {
+            sourceSelect.value = detectedSource;
+        }
+    }, 10);
+}
+
+// 处理添加表单中的URL输入事件
+function handleAddFormUrlInput(event, productId) {
+    const textarea = event.target;
+    const url = textarea.value.trim();
+    
+    // 只在输入较长内容时自动检测（避免输入过程中频繁切换）
+    if (url.length > 10) {
+        const detectedSource = detectSourceFromUrl(url);
+        
+        // 查找同一表单中的来源选择框
+        const form = textarea.closest('form');
+        const sourceSelect = form.querySelector('select[name="source_name"]');
+        
+        if (sourceSelect && detectedSource !== 'other') {
+            sourceSelect.value = detectedSource;
+        }
+    }
+}
+
+// 处理新增表单中的类型选择
+function handleTypeSelectChange(selectElement, productId) {
+    const customInput = selectElement.parentNode.querySelector('.custom-type-input');
+    
+    if (selectElement.value === '__custom__') {
+        customInput.style.display = 'block';
+        customInput.focus();
+    } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+    }
+}
+
+// 处理编辑时的类型选择
+function handleEditTypeSelectChange(selectElement, urlId) {
+    const customInput = selectElement.parentNode.querySelector('.edit-custom-type');
+    
+    if (selectElement.value === '__custom__') {
+        customInput.style.display = 'block';
+        customInput.focus();
+    } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+    }
+}
+
+// 搜索和筛选功能
+function filterProducts() {
+    const searchInput = document.getElementById('searchInput');
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const productItems = document.querySelectorAll('.url-mgmt-product-item');
+    
+    productItems.forEach(item => {
+        const productId = item.dataset.productId.toLowerCase();
+        const productNameElement = item.querySelector('.url-mgmt-product-name');
+        const productName = productNameElement ? productNameElement.textContent.toLowerCase() : '';
+        
+        const matchesSearch = productId.includes(searchTerm) || productName.includes(searchTerm);
+        
+        if (matchesSearch) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    filterProducts();
+}
+
+// 页面加载完成后的初始化
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('URL管理页面已加载');
+});
+</script>
+{% endblock %}

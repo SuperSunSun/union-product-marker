@@ -500,6 +500,44 @@ th {
 .badge.small {
   font-size: 0.7em;
 }
+
+/* 来源标签全局样式 - 具有可维护性的自定义类 */
+.badge.amazon {
+  background-color: #ff9500;
+  color: #fff;
+  border-color: #ff9500;
+}
+
+.badge.fairprice {
+  background-color: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+
+.badge.shopee {
+  background-color: #ee4d2d;
+  color: #fff;
+  border-color: #ee4d2d;
+}
+
+.badge.lazada {
+  background-color: #4c0f6d;
+  color: #fff;
+  border-color: #4c0f6d;
+}
+
+.badge.other {
+  background-color: #6c757d;
+  color: #fff;
+  border-color: #6c757d;
+}
+
+.badge.unknown {
+  background-color: #17a2b8;
+  color: #fff;
+  border-color: #17a2b8;
+}
+
 .delete-btn {
   flex-shrink: 0;
   margin-left: 10px;

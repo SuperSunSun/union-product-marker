@@ -48,18 +48,13 @@ instance/
 .DS_Store
 Thumbs.db
 
-# Project specific
-uploads/
-exports/
-media/
-data/database.db
-
 # union_scraper_htmlsaver_chrome_plugin
 union_scraper_htmlsaver_chrome_plugin/output/
 
 # union_product_marker_webserver
-union_product_marker_webserver/data/database.db
+!union_product_marker_webserver/data/database.db
 union_product_marker_webserver/exports/
+union_product_marker_webserver/uploads/
 
 # union_scraper_core
 union_scraper_core/output/ 
