@@ -11,6 +11,37 @@
     max-width: 500px;
 }
 
+.filter-container {
+    margin-top: 15px;
+}
+
+.filter-container .btn-group {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.filter-container .btn {
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: 80px;
+}
+
+.filter-container .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.filter-stats {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.filter-stats small {
+    font-weight: 500;
+}
+
 .url-mgmt-product-list {
     background: white;
     border: 1px solid #ddd;
@@ -332,6 +363,34 @@
             <button class="btn btn-outline-secondary" onclick="clearSearch()">
                 <i class="fas fa-times"></i> 清除
             </button>
+        </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="filter-container mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="btn-group" role="group" aria-label="URL筛选">
+                <input type="radio" class="btn-check" name="urlFilter" id="filterAll" value="all" checked onchange="handleFilterChange()">
+                <label class="btn btn-outline-primary" for="filterAll">
+                    <i class="fas fa-list me-1"></i>全部
+                </label>
+                
+                <input type="radio" class="btn-check" name="urlFilter" id="filterNoUrl" value="no_url" onchange="handleFilterChange()">
+                <label class="btn btn-outline-warning" for="filterNoUrl">
+                    <i class="fas fa-exclamation-triangle me-1"></i>无URL
+                </label>
+                
+                <input type="radio" class="btn-check" name="urlFilter" id="filterHasUrl" value="has_url" onchange="handleFilterChange()">
+                <label class="btn btn-outline-success" for="filterHasUrl">
+                    <i class="fas fa-link me-1"></i>有URL
+                </label>
+            </div>
+            <div class="filter-stats">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    显示 <span id="visibleCount">0</span> / <span id="totalCount">0</span> 个产品
+                </small>
+            </div>
         </div>
     </div>
 
@@ -1028,19 +1087,51 @@ function filterProducts() {
     const searchTerm = searchInput.value.toLowerCase().trim();
     const productItems = document.querySelectorAll('.url-mgmt-product-item');
     
+    // 获取当前选中的筛选选项
+    const selectedFilter = document.querySelector('input[name="urlFilter"]:checked').value;
+    
+    let visibleCount = 0;
+    const totalCount = productItems.length;
+    
     productItems.forEach(item => {
         const productId = item.dataset.productId.toLowerCase();
         const productNameElement = item.querySelector('.url-mgmt-product-name');
         const productName = productNameElement ? productNameElement.textContent.toLowerCase() : '';
         
+        // 获取URL数量
+        const urlCountElement = item.querySelector('.url-mgmt-url-count');
+        const urlCountText = urlCountElement ? urlCountElement.textContent : '0 URLs';
+        const urlCount = parseInt(urlCountText.match(/\d+/)[0]) || 0;
+        
+        // 检查搜索条件
         const matchesSearch = productId.includes(searchTerm) || productName.includes(searchTerm);
         
-        if (matchesSearch) {
+        // 检查筛选条件
+        let matchesFilter = true;
+        switch (selectedFilter) {
+            case 'no_url':
+                matchesFilter = urlCount === 0;
+                break;
+            case 'has_url':
+                matchesFilter = urlCount > 0;
+                break;
+            case 'all':
+            default:
+                matchesFilter = true;
+                break;
+        }
+        
+        if (matchesSearch && matchesFilter) {
             item.style.display = 'block';
+            visibleCount++;
         } else {
             item.style.display = 'none';
         }
     });
+    
+    // 更新统计显示
+    document.getElementById('visibleCount').textContent = visibleCount;
+    document.getElementById('totalCount').textContent = totalCount;
 }
 
 function clearSearch() {
@@ -1048,9 +1139,16 @@ function clearSearch() {
     filterProducts();
 }
 
+// 筛选按钮点击事件
+function handleFilterChange() {
+    filterProducts();
+}
+
 // 页面加载完成后的初始化
 document.addEventListener('DOMContentLoaded', function() {
     console.log('URL管理页面已加载');
+    // 初始化筛选统计
+    filterProducts();
 });
 </script>
 {% endblock %}
